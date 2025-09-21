@@ -16,7 +16,7 @@ void main(void)
     P4DIR = BIT7;    // P4.7 als Ausgang (LED2)
 
     while (1) {
-       if (!(P1IN & BIT1)) {    // Invert wegen PullUp
+        if (!(P1IN & BIT1)) {    // Invert wegen PullUp
             P1OUT |= BIT0;      // LED an
         } else {
             P1OUT &= ~BIT0;     // LED aus
