@@ -15,23 +15,17 @@ void main(void)
 
     P4DIR = BIT7;    // P4.7 als Ausgang (LED2)
 
-    unsigned int lastState1 = (P2IN & BIT1);
-    unsigned int lastState2 = (P1IN & BIT1);
-
     while (1) {
-
-        unsigned int nowP1 = (P2IN & BIT1);
-        unsigned int nowP2 = (P1IN & BIT1);
-
-        // Flanke High -> Low (Taste gedrückt wegen PullUp)
-        if (lastState1 && !nowP1) {
-            P1OUT ^= BIT0;   // LED1 toggeln
+       if (!(P1IN & BIT1)) {    // Invert wegen PullUp
+            P1OUT |= BIT0;      // LED an
+        } else {
+            P1OUT &= ~BIT0;     // LED aus
         }
-        lastState1 = nowP1;
 
-        if (lastState2 && !nowP2) {
-            P4OUT ^= BIT7;   // LED2 toggeln
+        if (!(P2IN & BIT1)) {	// Invert wegen PullUp
+            P4OUT |= BIT7;      // LED an
+        } else {
+            P4OUT &= ~BIT7;     // LED aus
         }
-        lastState2 = nowP2;
     }
 }
