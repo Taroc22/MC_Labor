@@ -25,15 +25,19 @@ void main(void){
 // ISR für Taster 1
 __attribute__((interrupt(PORT1_VECTOR)))
 void P1_VECTOR_ISR(void){
-	// LED einschalten
-	P1OUT |= BIT0;
-	P1IFG &= ~BIT1; //Bit clearen
+	if (P1IFG & BIT1) {
+		// LED einschalten
+		P1OUT |= BIT0;
+		P1IFG &= ~BIT1; //IR Bit clearen
+	}
 }
 
 // ISR für Taster 2
 __attribute__((interrupt(PORT2_VECTOR)))
 void P2_VECTOR_ISR(void){
-	// LED ausschalten
-	P1OUT &= ~BIT0;
-	P2IFG &= ~BIT1; //Bit clearen
+	if (P2IFG & BIT1) { 
+		// LED ausschalten
+		P1OUT &= ~BIT0;
+		P2IFG &= ~BIT1; //IR Bit clearen
+	}
 }
