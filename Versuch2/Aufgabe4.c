@@ -34,7 +34,7 @@ void main(void){
             } else {
                 TA2CCR1 = 0;      // untere Grenze
             }
-            for(int i=0; i<2000; i++);
+            for(int i=0; i<2000; i++); // Delay um Sprung von 0 auf 100% zu vermeiden
         }
 
         if (!(P2IN & BIT1)) {	// Invert wegen PullUp
@@ -43,7 +43,7 @@ void main(void){
             } else {
                 TA2CCR1 = TIMER_INTERVAL;  // obere Grenze
             }
-            for(int i=0; i<2000; i++);
+            for(int i=0; i<2000; i++); // Delay um Sprung von 0 auf 100% zu vermeiden
         }
     }
 
