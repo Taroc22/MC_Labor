@@ -48,5 +48,7 @@ void P2_VECTOR_ISR(void){
 
 // ISR für Timer erstellen die nach Ablauf der eingestellten Zeit (4 oder 6 Sekunden) die LED ausschaltet
 // ISR Bit evtl clearen; lokalen ISR enablen
+// Überlegen ob dass die sinnvollste Variante ist oder ob mit CCU nicht besser ist (zb Taster unterbricht Timer IR,
+// dann würde Timer IR danach weiterlaufen was quatsch ist)
 
 //////////////////NOCH UNVOLLSTÄNDIG!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
