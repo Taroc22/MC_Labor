@@ -1,4 +1,4 @@
-#include <MSP430.h> //Register des Prozessors
+#include <MSP430.h> // Register des Prozessors
 
 void main(void){
 
@@ -24,20 +24,20 @@ void main(void){
 
 // ISR für Taster 1
 __attribute__((interrupt(PORT1_VECTOR)))
-void P1_VECTOR_ISR(void){
-	if (P1IFG & BIT1) {
+void P1_VECTOR_ISR(void){ 
+	if (P1IFG & BIT1) { // Wenn der passende Port den IR ausgelöst hat
 		// LED einschalten
 		P1OUT |= BIT0;
-		P1IFG &= ~BIT1; //IR Bit clearen
+		P1IFG &= ~BIT1; // IR Bit clearen
 	}
 }
 
 // ISR für Taster 2
 __attribute__((interrupt(PORT2_VECTOR)))
 void P2_VECTOR_ISR(void){
-	if (P2IFG & BIT1) { 
+	if (P2IFG & BIT1) { // Wenn der passende Port den IR ausgelöst hat
 		// LED ausschalten
 		P1OUT &= ~BIT0;
-		P2IFG &= ~BIT1; //IR Bit clearen
+		P2IFG &= ~BIT1; // IR Bit clearen
 	}
 }
