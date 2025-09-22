@@ -5,7 +5,7 @@ void main(void){
     // WDTCTL = Watchdog Timer Control
     // WDTPW = Watchdog Timer Password
     // WDTCNTCL = Watchdog Counter Clear
-    // WDTSSEL_1 = Watchdog Soruce Select 1(ACLK)
+    // WDTSSEL_1 = Watchdog Source Select 1(ACLK)
     // WDTIS_4 = Watchdog Timer Intervall Select 4(ca.1s)
 	WDTCTL = WDTPW + WDTCNTCL + WDTSSEL_1 + WDTIS_4;
 
