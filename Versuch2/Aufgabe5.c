@@ -15,7 +15,7 @@ void main(void){
     P2REN |= BIT1;    // P2.1 Pull Resistor
     P2OUT |= BIT1;    // P2.1 Pull-Up aktivieren
 
-    // TA0CTL = Timer A0 Control Register
+    // TA2CTL = Timer A2 Control Register
     // TASSEL1 = Timer A Source Select 1(ACLK)
     // MC_1 = Mode Control 1 (Up Mode until value of TA2CCR0)
     // ID_0 = Timer A input divider: 0 - /1 */
