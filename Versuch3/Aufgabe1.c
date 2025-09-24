@@ -12,7 +12,7 @@ void main(void){
 	WDTCTL = WDTPW + WDTCNTCL + WDTSSEL_1 + WDTIS_4 + WDTTMSEL;
 	SFRIE1 = WDTIE; // Setzen des "Watch Dog Interrupt Enable" im "Special Function Register Interrupt Enable"
 
-	P1DIR = BIT0;    // P1.0 als Ausgang (LED1)
+	P1DIR |= BIT0;    // P1.0 als Ausgang (LED1)
 
 	// Globale Interruptfreigabe + Energiesparen
 	__bis_SR_register(LPM4_bits + GIE);
