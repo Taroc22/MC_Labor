@@ -32,11 +32,11 @@ void P1_VECTOR_ISR(void) {
         P1OUT |= BIT0;               // LED (P1.0) einschalten
 
         // Timer-Konfiguration für 4 Sekunden:
-        TA0CCR0   = 4096 * 4;        // Capture/Compare Register 0
+        TA0CCR0 = 4096 * 4;          // Capture/Compare Register 0
                                      // 4096 Takte pro Sekunde (ACLK = 32768 Hz / 8 Prescaler)
                                      // => 4 * 4096 = 16384 Takte = 4 Sekunden
 
-        TA0CCTL0  = CCIE;            // Capture/Compare Control Register 0
+        TA0CCTL0 = CCIE;             // Capture/Compare Control Register 0
                                      // CCIE: Capture/Compare Interrupt Enable (Interrupt auf CCR0 aktivieren)
 
 		// TA0CTL: Timer_A Control Register
@@ -44,7 +44,7 @@ void P1_VECTOR_ISR(void) {
 		// MC_1: Mode Control Up-Mode (0 → CCR0)
 		// ID_3: Input Divider /8 Teiler
 		// TACLR: Timer_A Counter Clear
-        TA0CTL    = TASSEL_1 + MC_1 + ID_3 + TACLR;     
+        TA0CTL = TASSEL_1 + MC_1 + ID_3 + TACLR;     
     }
     P1IFG = 0;                       // Interrupt-Flag-Register von Port1 löschen
 }
@@ -57,11 +57,11 @@ void P2_VECTOR_ISR(void) {
         P1OUT |= BIT0;               // LED (P1.0) einschalten
 
         // Timer-Konfiguration für 6 Sekunden:
-        TA0CCR0   = 4096 * 6;        // Capture/Compare Register 0
+        TA0CCR0 = 4096 * 6;          // Capture/Compare Register 0
                                      // 4096 Takte pro Sekunde (ACLK = 32768 Hz / 8 Prescaler)
                                      // => 6 * 4096 = 24576 Takte = 6 Sekunden
 
-        TA0CCTL0  = CCIE;            // Capture/Compare Control Register 0
+        TA0CCTL0 = CCIE;             // Capture/Compare Control Register 0
                                      // CCIE: Capture/Compare Interrupt Enable (Interrupt auf CCR0 aktivieren)
 
 		// TA0CTL: Timer_A Control Register
@@ -69,7 +69,7 @@ void P2_VECTOR_ISR(void) {
 		// MC_1: Mode Control Up-Mode (0 → CCR0)
 		// ID_3: Input Divider /8 Teiler
 		// TACLR: Timer_A Counter Clear
-        TA0CTL    = TASSEL_1 + MC_1 + ID_3 + TACLR;     
+        TA0CTL = TASSEL_1 + MC_1 + ID_3 + TACLR;     
     }
     P2IFG = 0;                       // Interrupt-Flag-Register von Port2 löschen
 }
@@ -79,7 +79,7 @@ __attribute__((interrupt(TIMER0_A0_VECTOR)))
 void TIMER0_A0_ISR(void) {
     P1OUT &= ~BIT0;                  // LED (P1.0) ausschalten
 
-    TA0CTL    = 0;                   // Timer stoppen (alle Bits in TA0CTL auf 0 → Timer aus)
+    TA0CTL = 0;                      // Timer stoppen
     TA0CCTL0 &= ~CCIFG;              // Capture/Compare Interrupt Flag löschen
                                      // verhindert erneutes Aufrufen der ISR
 }
