@@ -10,7 +10,7 @@ void main(void){
     // ID_0 = Timer A input divider: 0 - /1 */
     TA0CTL = TASSEL1 + MC_2 + ID_0;
 
-	P1DIR = BIT0;    // P1.0 als Ausgang (LED1)
+	P1DIR |= BIT0;    // P1.0 als Ausgang (LED1)
 
 	while(1){
         
