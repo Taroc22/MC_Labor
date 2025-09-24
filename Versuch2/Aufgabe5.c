@@ -5,7 +5,7 @@
 
 void main(void){
 
-    //Buzzer ist angeschlossen an P2.5 entspricht TA2.2 (Timer A2 internes binäres Signal 2)
+    //Buzzer ist angeschlossen an P2.5 entspricht TA2.2 (Timer A2 CCR2)
 
     WDTCTL = WDTPW + WDTHOLD;
 
@@ -22,7 +22,7 @@ void main(void){
     TA2CTL = TASSEL1 + MC_1 + ID_0;
     TA2CCR0 = TIMER_INTERVAL; // Set Timer Interval
 
-    TA2CCR2 = TIMER_INTERVAL / 2; //Initialisieren von LCD auf halbe Helligkeit
+    TA2CCR2 = TIMER_INTERVAL / 2; //Initialisieren von Buzzer auf halbe Lautstärke
     TA2CCTL2 = OUTMOD_3; // Timer A2 Capture Compare Control Register auf PWM set/reset setzen
 
     P2DIR |= BIT5; // Pin als Ausgang festlegen    
