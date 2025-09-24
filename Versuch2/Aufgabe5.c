@@ -9,11 +9,11 @@ void main(void){
 
     WDTCTL = WDTPW + WDTHOLD;
 
-    P1REN = BIT1;    // P1.1 Pull Resistor
-    P1OUT = BIT1;    // P1.1 Pull-Up aktivieren
+    P1REN |= BIT1;    // P1.1 Pull Resistor
+    P1OUT |= BIT1;    // P1.1 Pull-Up aktivieren
 
-    P2REN = BIT1;    // P2.1 Pull Resistor
-    P2OUT = BIT1;    // P2.1 Pull-Up aktivieren
+    P2REN |= BIT1;    // P2.1 Pull Resistor
+    P2OUT |= BIT1;    // P2.1 Pull-Up aktivieren
 
     // TA0CTL = Timer A0 Control Register
     // TASSEL1 = Timer A Source Select 1(ACLK)
