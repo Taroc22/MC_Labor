@@ -74,7 +74,7 @@ void P2_VECTOR_ISR(void) {
     P2IFG = 0;                       // Interrupt-Flag-Register von Port2 löschen
 }
 
-// Timer0_A0 ISR → wird bei CCR0 erreicht ausgelöst
+// Timer0_A0 ISR => wird bei CCR0 erreicht ausgelöst
 __attribute__((interrupt(TIMER0_A0_VECTOR)))
 void TIMER0_A0_ISR(void) {
     P1OUT &= ~BIT0;                  // LED (P1.0) ausschalten
