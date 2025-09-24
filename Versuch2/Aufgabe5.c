@@ -47,5 +47,4 @@ void main(void){
             for(int i=0; i<2000; i++); // Delay um Sprung von 0 auf 100% zu vermeiden
         }
     }
-
 }
