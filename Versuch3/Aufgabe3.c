@@ -19,6 +19,9 @@ void main(void){
 	P2IES |= BIT1;	  // Port 1 Interrupt Edge Select Register (Fallende Flanke da PullUp)
 	P2IE |= BIT1;	  // Port 2 Interrupt Enable Register
 
+    TA0CCTL0 = CCIE;  // TA0CCTL0: Timer A_0 Capture/Compare Control Register 0
+                      // CCIE: Capture/Compare Interrupt Enable (Interrupt auf CCR0 aktivieren)
+
 	// Globale Interruptfreigabe + Energiesparen
 	__bis_SR_register(LPM4_bits + GIE);
 
@@ -35,9 +38,6 @@ void P1_VECTOR_ISR(void) {
         TA0CCR0 = 4096 * 4;          // Capture/Compare Register 0
                                      // 4096 Takte pro Sekunde (ACLK = 32768 Hz / 8 Prescaler)
                                      // => 4 * 4096 = 16384 Takte = 4 Sekunden
-
-        TA0CCTL0 = CCIE;             // Capture/Compare Control Register 0
-                                     // CCIE: Capture/Compare Interrupt Enable (Interrupt auf CCR0 aktivieren)
 
 		// TA0CTL: Timer_A Control Register
 		// TASSEL_1: Timer_A Soruce Select ACLK (32768 Hz)
@@ -61,9 +61,6 @@ void P2_VECTOR_ISR(void) {
                                      // 4096 Takte pro Sekunde (ACLK = 32768 Hz / 8 Prescaler)
                                      // => 6 * 4096 = 24576 Takte = 6 Sekunden
 
-        TA0CCTL0 = CCIE;             // Capture/Compare Control Register 0
-                                     // CCIE: Capture/Compare Interrupt Enable (Interrupt auf CCR0 aktivieren)
-
 		// TA0CTL: Timer_A Control Register
 		// TASSEL_1: Timer_A Soruce Select ACLK (32768 Hz)
 		// MC_1: Mode Control Up-Mode (0 → CCR0)
@@ -78,7 +75,6 @@ void P2_VECTOR_ISR(void) {
 __attribute__((interrupt(TIMER0_A0_VECTOR)))
 void TIMER0_A0_ISR(void) {
     P1OUT &= ~BIT0;                  // LED (P1.0) ausschalten
-
     TA0CTL = 0;                      // Timer stoppen
     TA0CCTL0 &= ~CCIFG;              // Capture/Compare Interrupt Flag löschen
                                      // verhindert erneutes Aufrufen der ISR
