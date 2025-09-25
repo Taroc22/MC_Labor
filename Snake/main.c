@@ -51,7 +51,7 @@ void delay(unsigned int ms){
     TA0CTL =TASSEL_1 + MC_1 + ID_3 + TACLR;
     while (!(TA0CCTL0 & CCIFG));
     TA0CTL = 0; 
-    sb(TA0CCTL0, CCIFG);
+    cb(TA0CCTL0, CCIFG);
 }
 
 
