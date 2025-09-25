@@ -2,11 +2,16 @@
 #include "ST7735.h"
 #include <string.h>
 
+#define sb(reg, bit) ((reg) |= (bit))
+#define cb(reg, bit) ((reg) &= ~(bit))
+#define tb(reg, bit) ((reg) ^= (bit))
+
 #define WHITE 0xFFFFFF
 #define BG 0xd40d48
 #define AT "Amir Tannouri"
 #define BY "by"
 #define NM "SNAKE"
+#define ST "START"
 
 #define FONT_WIDTH 7
 #define FONT_HEIGHT 12
@@ -24,8 +29,8 @@ void delay(unsigned int ms){
     TA0CCR0 = 4096/1000 * ms;
     TA0CTL =TASSEL_1 + MC_1 + ID_3 + TACLR;
     while (!(TA0CCTL0 & CCIFG));
-    TA0CTL = 0;                      
-    TA0CCTL0 &= ~CCIFG;   
+    TA0CTL = 0; 
+    sb(TA0CCTL0, CCIFG);
 }
 
 int centerText(const char *text) {
@@ -48,6 +53,17 @@ void setup(){
     setText(centerText(AT), 69, AT, WHITE, BG);
     delay(2000);
     draw(0, 0, 128, 128, BG);
+    delay(500);
+
+    while(1){ //Durch Button IR ersetzen
+        setText(centerText(ST), 58, ST, WHITE, BG);
+        //Hier Buzzer anschalten
+        delay(600);
+        setText(centerText(ST), 58, ST, BG, BG);
+        //Hier Buzzer ausschalten
+        delay(600);
+    }
+    
 }
 
 
