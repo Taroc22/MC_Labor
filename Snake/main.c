@@ -37,6 +37,7 @@ struct RegBit {
     unsigned char bit;
 };
 
+
 struct RegBit regBits[] = {
     { &P1REN, BIT1 },
     { &P1OUT, BIT1 },
@@ -52,6 +53,7 @@ void delay(unsigned int ms){
     TA0CTL = 0; 
     sb(TA0CCTL0, CCIFG);
 }
+
 
 int centerText(const char *text) {
     int len = strlen(text);
@@ -78,9 +80,12 @@ void setup(){
     setText(centerText(AT), 69, AT, WHITE, BG);
     delay(2000);
     draw(0, 0, 128, 128, BG);
-    delay(500);
+    delay(500);  
+}
 
-    while(1){ //Durch Button IR ersetzen
+
+void start(){
+     while(1){ //Durch Button IR ersetzen
         setText(centerText(ST), 58, ST, WHITE, BG);
         //Hier Buzzer anschalten
         delay(600);
@@ -88,10 +93,10 @@ void setup(){
         //Hier Buzzer ausschalten
         delay(600);
     }
-    
 }
 
 
 void main(){
     setup();
+    start();
 }
