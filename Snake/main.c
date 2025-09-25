@@ -23,6 +23,8 @@
 /*
     Anzahl Zeilen (Höhe): 0-10
     Displaygröße: 128x128 (y wird aber gestreckt)
+
+    Timer A0 = delay
 */
 
 void delay(unsigned int ms){
