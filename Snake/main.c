@@ -1,3 +1,8 @@
+/*
+    Snake game for MSP430 with BOOSTXL-EDUMKII BoosterPack
+    @author: Amir Tannouri
+*/
+
 #include <msp430.h>
 #include "ST7735.h"
 #include <string.h>
