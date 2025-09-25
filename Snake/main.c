@@ -32,6 +32,19 @@
     Timer A0 = delay
 */
 
+struct RegBit {
+    volatile unsigned char *reg;
+    unsigned char bit;
+};
+
+struct RegBit regBits[] = {
+    { &P1REN, BIT1 },
+    { &P1OUT, BIT1 },
+    { &P2REN, BIT1 },
+    { &P2OUT, BIT1 }
+};
+
+
 void delay(unsigned int ms){
     TA0CCR0 = 4096/1000 * ms;
     TA0CTL =TASSEL_1 + MC_1 + ID_3 + TACLR;
@@ -49,10 +62,9 @@ int centerText(const char *text) {
 
 void setup(){
     WDTCTL = WDTPW + WDTHOLD;
-    
-    volatile char *reg[] = {&P1REN, &P1OUT, &P2REN, &P2OUT};
+
     for(int i = 0; i< 4; i++){
-        sb(*reg[i], BIT1);
+        sb(*regBits[i].reg, regBits[i].bit);
     }   
 
     ST7735_interface_init();  
