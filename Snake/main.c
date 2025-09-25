@@ -49,6 +49,12 @@ int centerText(const char *text) {
 
 void setup(){
     WDTCTL = WDTPW + WDTHOLD;
+    
+    volatile char *reg[] = {&P1REN, &P1OUT, &P2REN, &P2OUT};
+    for(int i = 0; i< 4; i++){
+        sb(*reg[i], BIT1);
+    }   
+
     ST7735_interface_init();  
     ST7735_display_init();
     
