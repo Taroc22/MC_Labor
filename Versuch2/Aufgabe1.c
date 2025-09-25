@@ -23,7 +23,7 @@ void main(void){
 
 	while(1){
         // Watchdog zurücksetzen/ neustarten
-        WDTCTL = WDTPW + WDTCNTCL + WDTSSEL_1 + WDTIS_4;
+        WDTCTL = WDTPW + WDTCNTCL;
 
 		unsigned int nowP1 = (P2IN & BIT1);
         unsigned int nowP2 = (P1IN & BIT1);
@@ -40,6 +40,5 @@ void main(void){
 			}
         }
         lastState2 = nowP2;
-		
 	}
 }
