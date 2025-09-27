@@ -51,7 +51,7 @@ typedef struct {
     uint8_t y;
 } PixelPos; 
 
-GridPos currPos; 
+GridPos currPos; //max 0-7 für x&y
 
 enum RegType { REG_BIT, REG_VAL };
 
@@ -158,4 +158,6 @@ void start(){
 void main(){
     setup();
     start();
+    currPos = {5, 5};
+    field[currPos.y][currPos.x] = 1;
 }
