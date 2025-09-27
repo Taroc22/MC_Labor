@@ -105,7 +105,6 @@ void initMCU(){
             field[i][j] = 0;
         }
     }
-    sb(P1OUT, BIT0);
 }
 
 
@@ -134,13 +133,18 @@ void setup(){
 }
 
 
-void start(){
+void start(){    
+    sb(P1OUT, BIT0);
+    setText(centerText(PR), 35, PR, WHITE, BG);
+    setText(centerText(ST), 70, ST, WHITE, BG);
+    goto start;
     while (!(P1IFG & BIT1) && !(P2IFG & BIT1)){
         setText(centerText(PR), 35, PR, WHITE, BG);
         setText(centerText(ST), 70, ST, WHITE, BG);
         tb(P1OUT, BIT0);
         tb(P4OUT, BIT7);
         //Hier Buzzer anschalten
+    start:
         delay(600);
         setText(centerText(PR), 35, PR, BG, BG);
         setText(centerText(ST), 70, ST, BG, BG);
@@ -158,6 +162,6 @@ void start(){
 void main(){
     setup();
     start();
-    currPos = {5, 5};
-    field[currPos.y][currPos.x] = 1;
+    currPos = (GridPos){5, 5};
+    field[currPos.row][currPos.col] = 1;
 }
