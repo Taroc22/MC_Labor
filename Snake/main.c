@@ -17,6 +17,7 @@
 #define AT "Amir Tannouri"
 #define BY "by"
 #define NM "SNAKE"
+#define PR "PRESS"
 #define ST "START"
 
 #define FONT_WIDTH 7
@@ -25,17 +26,32 @@
 #define DISPLAY_WIDTH 128
 #define DISPLAY_HEIGHT 128
 
-#define ROWS 10
-#define COLS 10
+#define ROWS 8
+#define COLS 8
 
 /*
     Anzahl Zeilen (Höhe): 0-10
     Displaygröße: 128x128 (y wird aber gestreckt)
 
     Timer A0 = delay
+
+    Feldgröße (Pixel)	Felder pro Achse
+        8×8	                16×16
 */
 
 uint8_t field[ROWS][COLS];
+
+typedef struct {
+    uint8_t row;
+    uint8_t col;
+} GridPos;
+
+typedef struct {
+    uint8_t x;
+    uint8_t y;
+} PixelPos; 
+
+GridPos currPos; 
 
 enum RegType { REG_BIT, REG_VAL };
 
@@ -49,7 +65,12 @@ struct RegOp ops[] = {
     { REG_BIT, &P1REN, BIT1 },
     { REG_BIT, &P1OUT, BIT1 },
     { REG_BIT, &P2REN, BIT1 },
-    { REG_BIT, &P2OUT, BIT1 }
+    { REG_BIT, &P2OUT, BIT1 },
+    { REG_BIT, &P1DIR, BIT0 },
+    { REG_BIT, &P4DIR, BIT7 },
+    { REG_BIT, &P2DIR, BIT5 }, //Buzzer
+    { REG_BIT, &P2SEL, BIT5 }  //Buzzer
+    //ADC
     //{ REG_VAL, &TA0CTL, TASSEL_1 + MC_1 + ID_3 + TACLR } Beispiel
 };
 
@@ -69,6 +90,7 @@ int centerText(const char *text) {
     return (DISPLAY_WIDTH - width) / 2;
 }
 
+
 void initMCU(){
     WDTCTL = WDTPW + WDTHOLD;
     for (int i = 0; i < sizeof(ops)/sizeof(ops[0]); i++) {
@@ -83,7 +105,17 @@ void initMCU(){
             field[i][j] = 0;
         }
     }
+    sb(P1OUT, BIT0);
 }
+
+
+PixelPos gridToPixel(GridPos g) {
+    PixelPos p;
+    p.x = g.col * COLS;
+    p.y = g.row * ROWS;
+    return p;
+}
+
 
 void setup(){
     initMCU();
@@ -104,10 +136,16 @@ void setup(){
 
 void start(){
     while (!(P1IFG & BIT1) && !(P2IFG & BIT1)){
-        setText(centerText(ST), 58, ST, WHITE, BG);
+        setText(centerText(PR), 35, PR, WHITE, BG);
+        setText(centerText(ST), 70, ST, WHITE, BG);
+        tb(P1OUT, BIT0);
+        tb(P4OUT, BIT7);
         //Hier Buzzer anschalten
         delay(600);
-        setText(centerText(ST), 58, ST, BG, BG);
+        setText(centerText(PR), 35, PR, BG, BG);
+        setText(centerText(ST), 70, ST, BG, BG);
+        tb(P1OUT, BIT0);
+        tb(P4OUT, BIT7);
         //Hier Buzzer ausschalten
         delay(600);
     }
