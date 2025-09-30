@@ -80,7 +80,7 @@ struct RegOp ops[] = {
 
 void delay(unsigned int ms){
     TA0CCR0 = 4096/1000 * ms;
-    TA0CTL =TASSEL_1 + MC_1 + ID_3 + TACLR;
+    TA0CTL = TASSEL_1 + MC_1 + ID_3 + TACLR;
     while (!(TA0CCTL0 & CCIFG));
     TA0CTL = 0; 
     cb(TA0CCTL0, CCIFG);
