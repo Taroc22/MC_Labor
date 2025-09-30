@@ -53,6 +53,9 @@ typedef struct {
 
 GridPos currPos; //max 0-15 für row&col
 
+enum dir { UP, DOWN, LEFT, RIGHT};
+//volatile dir 
+
 enum RegType { REG_BIT, REG_VAL };
 
 struct RegOp {
