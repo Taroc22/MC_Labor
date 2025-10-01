@@ -7,6 +7,7 @@
 #include "ST7735.h"
 #include <string.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #define sb(reg, bit) ((reg) |= (bit))
 #define cb(reg, bit) ((reg) &= ~(bit))
@@ -29,6 +30,12 @@
 #define ROWS 8
 #define COLS 8
 
+#define ADC_MAX 4095
+#define ADC_CENTER (ADC_MAX / 2)
+#define DEADZONE 200
+
+#define CLK 4096/1000 * 500
+
 /*
     Anzahl Zeilen (Höhe): 0-10
     Displaygröße: 128x128 (y wird aber gestreckt)
@@ -38,6 +45,8 @@
     Feldgröße (Pixel)	Felder pro Achse
         8×8	                16×16
 */
+
+volatile uint8_t tick = 0;
 
 uint8_t field[ROWS][COLS];
 
@@ -53,8 +62,15 @@ typedef struct {
 
 GridPos currPos; //max 0-15 für row&col
 
-enum dir { UP, DOWN, LEFT, RIGHT, STOP};
-volatile enum dir curDir = STOP;
+typedef enum {
+    CENTER,
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT
+} Dir;
+
+volatile Dir curDir = CENTER; //evtl überflüssig
 
 enum RegType { REG_BIT, REG_VAL };
 
@@ -72,7 +88,10 @@ struct RegOp ops[] = {
     { REG_BIT, &P1DIR, BIT0 },
     { REG_BIT, &P4DIR, BIT7 },
     { REG_BIT, &P2DIR, BIT5 }, //Buzzer
-    { REG_BIT, &P2SEL, BIT5 }  //Buzzer
+    { REG_BIT, &P2SEL, BIT5 }, //Buzzer
+    { REG_VAL, &TA1CCTL0, CCIE },   //Timerconfig evtl auslagern in Hauptroutine
+    { REG_VAL, &TA1CCR0, CLK },
+    { REG_VAL, &TA1CTL, TASSEL_1+MC_1+ID_3+TACLR }
     //ADC
     //{ REG_VAL, &TA0CTL, TASSEL_1 + MC_1 + ID_3 + TACLR } Beispiel
 };
@@ -108,6 +127,7 @@ void initMCU(){
             field[i][j] = 0;
         }
     }
+    __bis_SR_register(GIE);
 }
 
 
@@ -116,6 +136,22 @@ PixelPos gridToPixel(GridPos g) {
     p.x = g.col * COLS;
     p.y = g.row * ROWS;
     return p;
+}
+
+
+Dir scaleADC(uint16_t x, uint16_t y) {
+    int16_t dx = (int16_t)x - ADC_CENTER;
+    int16_t dy = (int16_t)y - ADC_CENTER;
+
+    if (abs(dx) < DEADZONE && abs(dy) < DEADZONE) {
+        return CENTER;   
+    }
+
+    if (abs(dx) > abs(dy)) {
+        return (dx < 0) ? LEFT : RIGHT;
+    } else {
+        return (dy < 0) ? UP : DOWN;
+    }
 }
 
 
@@ -167,4 +203,24 @@ void main(){
     start();
     currPos = (GridPos){8, 8};
     field[currPos.row][currPos.col] = 1;
+
+    while(1){
+        //if tick == 1 => tick = 0 + logik ausführen
+        //read ADC
+        //scale ADC
+        //check if next pos is free/ collision
+            //if yes: redraw snake to new position/ update field variables
+            //if no: game over
+
+    }
+
+}
+
+
+// Timer1_A0 ISR => wird bei CCR0 erreicht ausgelöst
+__attribute__((interrupt(TIMER1_A0_VECTOR)))
+void TIMER1_A0_ISR(void) {
+    tick = 1;
+    sb(TA1CTL, TACLR);
+    TA1CCTL0 &= ~CCIFG; 
 }
