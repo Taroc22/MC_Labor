@@ -15,13 +15,12 @@
 #define tb(reg, bit) ((reg) ^= (bit))
 
 //0xBBGGRR
-#define WHITE   0xFFFFFF
 #define BLACK   0x000000
 #define WHITE   0xFFFFFF
 #define RED     0x0000FF
 #define GREEN   0x00FF00
-#define BLUE    0x0000FF
-#define YELLOW  0xFFFF00
+#define BLUE    0xFF0000
+#define YELLOW  0x00FFFF
 #define BG      0xD40D48
 
 #define AT "Amir Tannouri"
@@ -29,6 +28,7 @@
 #define NM "SNAKE"
 #define PR "PRESS"
 #define ST "START"
+#define GO "GAME OVER"
 
 #define FONT_WIDTH      7
 #define FONT_HEIGHT     12
@@ -40,12 +40,13 @@
 #define COLS            16
 #define SNAKE_WIDTH     8
 #define SNAKE_HEIGHT    8
+#define MAX_SNAKE_LENGTH (ROWS * COLS)
 
 #define ADC_MAX         4095
 #define ADC_CENTER      (ADC_MAX / 2)
 #define DEADZONE        200
 
-#define CLK             4096/1000 * 200
+#define CLK             4096/1000 * 600
 
 /*
     Anzahl Zeilen (Höhe): 0-10
@@ -57,6 +58,8 @@
         8×8	                16×16
 */
 
+unsigned int joyX, joyY;
+unsigned int score = 0;
 volatile uint8_t tick = 0;
 
 uint8_t field[ROWS][COLS];
@@ -66,12 +69,16 @@ typedef struct {
     uint8_t col;
 } GridPos;
 
+//max 0-15 für row&col
+GridPos currPos;
+
+GridPos snake[MAX_SNAKE_LENGTH];
+uint16_t snakeLength = 1;
+
 typedef struct {
     uint8_t x;
     uint8_t y;
 } PixelPos; 
-
-GridPos currPos; //max 0-15 für row&col
 
 typedef enum {
     CENTER,
@@ -81,7 +88,7 @@ typedef enum {
     RIGHT
 } Dir;
 
-volatile Dir curDir = CENTER;
+volatile Dir currDir = CENTER;
 
 enum RegType { REG_BIT, REG_VAL };
 
@@ -98,14 +105,14 @@ struct RegOp ops[] = {
     { REG_BIT, &P2OUT, BIT1 },
     { REG_BIT, &P1DIR, BIT0 },
     { REG_BIT, &P4DIR, BIT7 },
-    { REG_BIT, &P2DIR, BIT5 }, //Buzzer
-    { REG_BIT, &P2SEL, BIT5 }, //Buzzer
-    { REG_VAL, &TA1CCTL0, CCIE },   //Timerconfig evtl auslagern in Hauptroutine
+    { REG_BIT, &P2DIR, BIT5 },                  //Buzzer
+    { REG_BIT, &P2SEL, BIT5 },                  //Buzzer
+    { REG_VAL, &TA1CCTL0, CCIE },               //Timerconfig evtl auslagern in Hauptroutine
     { REG_VAL, &TA1CCR0, CLK },
     { REG_VAL, &TA1CTL, TASSEL_1|MC_1|ID_3|TACLR },
-    { REG_VAL, &ADC12CTL0, ADC12SHT0_8 },   //Sample-and-Hold 256 ADC-Takte
-    { REG_VAL, &ADC12CTL1, ADC12SHP },      //Sampling Timer verwenden
-    { REG_VAL, &ADC12CTL2, ADC12RES_2 },    //12-bit Auflösung
+    { REG_VAL, &ADC12CTL0, ADC12SHT0_8 },       //Sample-and-Hold 256 ADC-Takte
+    { REG_VAL, &ADC12CTL1, ADC12SHP },          //Sampling Timer verwenden
+    { REG_VAL, &ADC12CTL2, ADC12RES_2 },        //12-bit Auflösung
     { REG_VAL, &ADC12CTL0, ADC12ON | ADC12ENC } //ADC einschalten und aktivieren
 };
 
@@ -151,7 +158,7 @@ unsigned int readADC(unsigned int channel)
     ADC12CTL0 |= ADC12ENC;        // ADC aktivieren
 
     ADC12CTL0 |= ADC12SC;         // Konversion starten: Sample-and-Hold + A/D-Wandlung
-    while (ADC12CTL1 & ADC12BUSY); // Warten bis ADC fertig ist (BUSY=0 ist fertig)
+    while (ADC12CTL1 & ADC12BUSY);// Warten bis ADC fertig ist (BUSY=0 ist fertig)
 
     return ADC12MEM0;             // return Messwert (0–4095)
 }
@@ -224,16 +231,83 @@ void start(){
 }
 
 
-unsigned int checkCollision(Dir dir){
-    //Check if move dir from currPos in field possible
-    //return 1 if yes else 0
+// returns 0 if collison, 1 if none
+unsigned int checkCollision(Dir *lastDir)
+{
+    // If curDir == CENTER keep lastDir
+    Dir dirToCheck = (currDir == CENTER) ? *lastDir : currDir;
+
+    int newRow = currPos.row;
+    int newCol = currPos.col;
+
+    switch(dirToCheck) {
+        case UP:    newRow--; break;
+        case DOWN:  newRow++; break;
+        case LEFT:  newCol--; break;
+        case RIGHT: newCol++; break;
+        default: break;
+    }
+
+    if(newRow < 0 || newRow >= ROWS || newCol < 0 || newCol >= COLS)
+        return 0; //wall collision
+
+    if(field[newRow][newCol] == 1)
+        return 0; //body collision
+        
+    *lastDir = dirToCheck;
+    currPos.row = newRow;
+    currPos.col = newCol;
+    return 1;
 }
 
 
-//Auf ganzen Snake Körper erweitern
 void drawSnake(){
-    PixelPos p = gridToPixel(currPos);
+    PixelPos p = gridToPixel(snake[0]);
     draw(p.x, p.y, SNAKE_WIDTH, SNAKE_HEIGHT, RED);
+}
+
+
+//evtl sehr zweitaufwändig bei großem Feld
+void spawnFood() {
+    uint8_t r, c;
+    do {
+        r = rand() % ROWS;
+        c = rand() % COLS;
+    } while(field[r][c] != 0); //only on free field
+
+    field[r][c] = 2; // 2 = food
+    PixelPos p = gridToPixel((GridPos){r, c});
+    draw(p.x, p.y, SNAKE_WIDTH, SNAKE_HEIGHT, GREEN);
+}
+
+
+void checkFood() {
+    if(field[currPos.row][currPos.col] == 2) {
+        score++;
+        spawnFood();
+
+        //endPos bleibt unverändert
+        //snake[] einfach unverändert einen Index hoch schieben und an den Anfang currPos anhängen
+        for (int i = snakeLength; i > 0; i--) {
+            snake[i] = snake[i-1];
+        }
+        snake[0] = currPos;
+        snakeLength++;
+
+    } else {
+        //always delete last element of snake
+        GridPos last = snake[snakeLength - 1];
+        PixelPos p = gridToPixel(last);
+        draw(p.x, p.y, SNAKE_WIDTH, SNAKE_HEIGHT, BG);
+        field[last.row][last.col] = 0;
+        
+        //snake[] einfach unverändert hoch schieben und das oberste/ letzte Element löschen
+        for (int i = snakeLength - 1; i > 0; i--) {
+            snake[i] = snake[i-1];
+        }
+        snake[0] = currPos;
+    }
+    field[currPos.row][currPos.col] = 1;
 }
 
 
@@ -243,10 +317,11 @@ void main(){
 
     currPos = (GridPos){8, 8};
     field[currPos.row][currPos.col] = 1;
-    unsigned int joyX, joyY;
-    curDir = (Dir)((rand() % 4) + 1); //init dir randomly
-
+    snake[0] = currPos;
+    //init lastDir randomly in case first adc reading is CENTER
+    Dir lastDir = (Dir)((rand() % 4) + 1); // exclude CENTER
     drawSnake();
+    spawnFood();
 
     //debug
     //char buffer[32];  
@@ -260,17 +335,22 @@ void main(){
             joyY = readADC(3);   // P6.3
 
             //scale ADC
-            curDir = scaleADC(joyX, joyY);
+            currDir = scaleADC(joyX, joyY);
 
             //debug
             //sprintf(buffer, "X:%4u Y:%4u", joyX, joyY);
             //drawTextLine(2, 0, buffer, GREEN, BLACK);
-            //sprintf(buffer, "Dir=%s", dirNames[curDir]);
+            //sprintf(buffer, "Dir=%s", dirNames[currDir]);
             //drawTextLine(6, 0, buffer, GREEN, BLACK);
-
-            //check if next pos is free/ collision
-                //if yes: redraw snake to new position/ update field variables (currPos, field)
-                //if no: game over
+            
+            if(checkCollision(&lastDir) == 1) {
+                checkFood();
+                drawSnake();
+            } else {
+                draw(0, 0, 128, 128, BG);
+                setText(centerText(GO), 58, GO, WHITE, BG);
+                break;
+            }
 
             tick = 0;
         }
