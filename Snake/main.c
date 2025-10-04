@@ -8,33 +8,44 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #define sb(reg, bit) ((reg) |= (bit))
 #define cb(reg, bit) ((reg) &= ~(bit))
 #define tb(reg, bit) ((reg) ^= (bit))
 
-#define WHITE 0xFFFFFF
-#define BG 0xd40d48
+//0xBBGGRR
+#define WHITE   0xFFFFFF
+#define BLACK   0x000000
+#define WHITE   0xFFFFFF
+#define RED     0x0000FF
+#define GREEN   0x00FF00
+#define BLUE    0x0000FF
+#define YELLOW  0xFFFF00
+#define BG      0xD40D48
+
 #define AT "Amir Tannouri"
 #define BY "by"
 #define NM "SNAKE"
 #define PR "PRESS"
 #define ST "START"
 
-#define FONT_WIDTH 7
-#define FONT_HEIGHT 12
-#define CHAR_SPACING 0
-#define DISPLAY_WIDTH 128
-#define DISPLAY_HEIGHT 128
+#define FONT_WIDTH      7
+#define FONT_HEIGHT     12
+#define CHAR_SPACING    0
+#define DISPLAY_WIDTH   128
+#define DISPLAY_HEIGHT  128
 
-#define ROWS 8
-#define COLS 8
+#define ROWS            16
+#define COLS            16
+#define SNAKE_WIDTH     8
+#define SNAKE_HEIGHT    8
 
-#define ADC_MAX 4095
-#define ADC_CENTER (ADC_MAX / 2)
-#define DEADZONE 200
+#define ADC_MAX         4095
+#define ADC_CENTER      (ADC_MAX / 2)
+#define DEADZONE        200
 
-#define CLK 4096/1000 * 500
+#define CLK             4096/1000 * 200
 
 /*
     Anzahl Zeilen (Höhe): 0-10
@@ -70,7 +81,7 @@ typedef enum {
     RIGHT
 } Dir;
 
-volatile Dir curDir = CENTER; //evtl überflüssig
+volatile Dir curDir = CENTER;
 
 enum RegType { REG_BIT, REG_VAL };
 
@@ -91,9 +102,11 @@ struct RegOp ops[] = {
     { REG_BIT, &P2SEL, BIT5 }, //Buzzer
     { REG_VAL, &TA1CCTL0, CCIE },   //Timerconfig evtl auslagern in Hauptroutine
     { REG_VAL, &TA1CCR0, CLK },
-    { REG_VAL, &TA1CTL, TASSEL_1+MC_1+ID_3+TACLR }
-    //ADC
-    //{ REG_VAL, &TA0CTL, TASSEL_1 + MC_1 + ID_3 + TACLR } Beispiel
+    { REG_VAL, &TA1CTL, TASSEL_1|MC_1|ID_3|TACLR },
+    { REG_VAL, &ADC12CTL0, ADC12SHT0_8 },   //Sample-and-Hold 256 ADC-Takte
+    { REG_VAL, &ADC12CTL1, ADC12SHP },      //Sampling Timer verwenden
+    { REG_VAL, &ADC12CTL2, ADC12RES_2 },    //12-bit Auflösung
+    { REG_VAL, &ADC12CTL0, ADC12ON | ADC12ENC } //ADC einschalten und aktivieren
 };
 
 
@@ -131,10 +144,23 @@ void initMCU(){
 }
 
 
+unsigned int readADC(unsigned int channel)
+{
+    ADC12CTL0 &= ~ADC12ENC;       // Konversion deaktivieren um Channel zu wechseln
+    ADC12MCTL0 = channel;         // ADC-Memory0 auf Channel einstellen (z. B. A5 = 5)
+    ADC12CTL0 |= ADC12ENC;        // ADC aktivieren
+
+    ADC12CTL0 |= ADC12SC;         // Konversion starten: Sample-and-Hold + A/D-Wandlung
+    while (ADC12CTL1 & ADC12BUSY); // Warten bis ADC fertig ist (BUSY=0 ist fertig)
+
+    return ADC12MEM0;             // return Messwert (0–4095)
+}
+
+
 PixelPos gridToPixel(GridPos g) {
     PixelPos p;
-    p.x = g.col * COLS;
-    p.y = g.row * ROWS;
+    p.x = g.col * SNAKE_WIDTH;
+    p.y = g.row * SNAKE_HEIGHT;
     return p;
 }
 
@@ -150,7 +176,7 @@ Dir scaleADC(uint16_t x, uint16_t y) {
     if (abs(dx) > abs(dy)) {
         return (dx < 0) ? LEFT : RIGHT;
     } else {
-        return (dy < 0) ? UP : DOWN;
+        return (dy < 0) ? DOWN : UP;
     }
 }
 
@@ -198,22 +224,57 @@ void start(){
 }
 
 
+unsigned int checkCollision(Dir dir){
+    //Check if move dir from currPos in field possible
+    //return 1 if yes else 0
+}
+
+
+//Auf ganzen Snake Körper erweitern
+void drawSnake(){
+    PixelPos p = gridToPixel(currPos);
+    draw(p.x, p.y, SNAKE_WIDTH, SNAKE_HEIGHT, RED);
+}
+
+
 void main(){
     setup();
     start();
+
     currPos = (GridPos){8, 8};
     field[currPos.row][currPos.col] = 1;
+    unsigned int joyX, joyY;
+    curDir = (Dir)((rand() % 4) + 1); //init dir randomly
+
+    drawSnake();
+
+    //debug
+    //char buffer[32];  
+    //const char* dirNames[] = { "CENTER", "UP", "DOWN", "LEFT", "RIGHT" }; 
 
     while(1){
-        //if tick == 1 => tick = 0 + logik ausführen
-        //read ADC
-        //scale ADC
-        //check if next pos is free/ collision
-            //if yes: redraw snake to new position/ update field variables
-            //if no: game over
+        if (tick == 1){
 
+            //read ADC
+            joyX = readADC(5);   // P6.5
+            joyY = readADC(3);   // P6.3
+
+            //scale ADC
+            curDir = scaleADC(joyX, joyY);
+
+            //debug
+            //sprintf(buffer, "X:%4u Y:%4u", joyX, joyY);
+            //drawTextLine(2, 0, buffer, GREEN, BLACK);
+            //sprintf(buffer, "Dir=%s", dirNames[curDir]);
+            //drawTextLine(6, 0, buffer, GREEN, BLACK);
+
+            //check if next pos is free/ collision
+                //if yes: redraw snake to new position/ update field variables (currPos, field)
+                //if no: game over
+
+            tick = 0;
+        }
     }
-
 }
 
 
