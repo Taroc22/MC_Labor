@@ -119,7 +119,7 @@ struct RegOp ops[] = {
     { REG_VAL, &ADC12CTL0, ADC12SHT0_8 },       //Sample-and-Hold 256 ADC-Takte
     { REG_VAL, &ADC12CTL1, ADC12SHP },          //Sampling Timer verwenden
     { REG_VAL, &ADC12CTL2, ADC12RES_2 },        //12-bit Auflösung
-    { REG_VAL, &ADC12CTL0, ADC12ON|ADC12ENC } //ADC einschalten und aktivieren
+    { REG_VAL, &ADC12CTL0, ADC12ON|ADC12ENC }   //ADC einschalten und aktivieren
 };
 
 
