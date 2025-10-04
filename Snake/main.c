@@ -3,6 +3,13 @@
     @author: Amir Tannouri
 */
 
+/*
+    TODO: 
+        - Buzzer
+        - Game Win
+        - Score einblende (bspw. bei Game Over)
+*/
+
 #include <msp430.h>
 #include "ST7735.h"
 #include <string.h>
@@ -55,7 +62,7 @@
     Timer A0 = delay
 
     Feldgröße (Pixel)	Felder pro Achse
-        8×8	                16×16
+        8×8	                16×16      
 */
 
 unsigned int joyX, joyY;
@@ -69,8 +76,7 @@ typedef struct {
     uint8_t col;
 } GridPos;
 
-//max 0-15 für row&col
-GridPos currPos;
+GridPos currPos; //max 0-15 für row&col
 
 GridPos snake[MAX_SNAKE_LENGTH];
 uint16_t snakeLength = 1;
@@ -267,18 +273,28 @@ void drawSnake(){
 }
 
 
-//evtl sehr zweitaufwändig bei großem Feld
-void spawnFood() {
-    uint8_t r, c;
-    do {
-        r = rand() % ROWS;
-        c = rand() % COLS;
-    } while(field[r][c] != 0); //only on free field
+void spawnFood(void) {
+    GridPos freeCells[ROWS * COLS];
+    unsigned int freeCount = 0;
 
-    field[r][c] = 2; // 2 = food
-    PixelPos p = gridToPixel((GridPos){r, c});
+    for (uint8_t r = 0; r < ROWS; r++) {
+        for (uint8_t c = 0; c < COLS; c++) {
+            if (field[r][c] == 0) {
+                freeCells[freeCount++] = (GridPos){r, c};
+            }
+        }
+    }
+
+    if (freeCount == 0) return; //game won implementieren
+
+    unsigned int index = rand() % freeCount;
+    GridPos foodPos = freeCells[index];
+
+    field[foodPos.row][foodPos.col] = 2;
+    PixelPos p = gridToPixel(foodPos);
     draw(p.x, p.y, SNAKE_WIDTH, SNAKE_HEIGHT, GREEN);
 }
+
 
 
 void checkFood() {
@@ -286,8 +302,7 @@ void checkFood() {
         score++;
         spawnFood();
 
-        //endPos bleibt unverändert
-        //snake[] einfach unverändert einen Index hoch schieben und an den Anfang currPos anhängen
+        //push snake[] one index up and add currPos at index 0
         for (int i = snakeLength; i > 0; i--) {
             snake[i] = snake[i-1];
         }
@@ -301,7 +316,7 @@ void checkFood() {
         draw(p.x, p.y, SNAKE_WIDTH, SNAKE_HEIGHT, BG);
         field[last.row][last.col] = 0;
         
-        //snake[] einfach unverändert hoch schieben und das oberste/ letzte Element löschen
+        //push snake[] one index up, delete last element and add currPos at index 0
         for (int i = snakeLength - 1; i > 0; i--) {
             snake[i] = snake[i-1];
         }
