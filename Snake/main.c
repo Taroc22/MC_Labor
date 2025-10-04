@@ -8,6 +8,7 @@
         - Buzzer
         - Game Win
         - Score einblenden (bspw. bei Game Over)
+        - Restart
 */
 
 #include <msp430.h>
