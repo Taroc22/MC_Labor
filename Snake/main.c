@@ -7,7 +7,7 @@
     TODO: 
         - Buzzer
         - Game Win
-        - Score einblende (bspw. bei Game Over)
+        - Score einblenden (bspw. bei Game Over)
 */
 
 #include <msp430.h>
