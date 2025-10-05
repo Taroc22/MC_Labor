@@ -1,6 +1,6 @@
 /*
     Snake game for MSP430 with BOOSTXL-EDUMKII BoosterPack
-    @author: Amir Tannouri
+    @author: Amir Tannouri |2025
 */
 
 /*
