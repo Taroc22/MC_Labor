@@ -8,7 +8,10 @@
         - Buzzer
         - Game Win
         - Score einblenden (bspw. bei Game Over)
+        - Alltime Highscore bei Start zeigen
         - Restart
+        - Seed
+        - Sounds
 */
 
 #include <msp430.h>
@@ -52,7 +55,7 @@
 
 #define ADC_MAX         4095
 #define ADC_CENTER      (ADC_MAX / 2)
-#define DEADZONE        200
+#define DEADZONE        500
 
 #define CLK             4096/1000 * 600
 
