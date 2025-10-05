@@ -10,7 +10,6 @@
         - Score einblenden (bspw. bei Game Over)
         - Alltime Highscore bei Start zeigen
         - Restart
-        - Seed
         - Sounds
 */
 
