@@ -334,6 +334,7 @@ void main(){
     setup();
     start();
 
+    srand(TA1R);
     currPos = (GridPos){8, 8};
     field[currPos.row][currPos.col] = 1;
     snake[0] = currPos;
