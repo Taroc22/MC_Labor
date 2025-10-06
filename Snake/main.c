@@ -346,7 +346,6 @@ void spawnFood(void) {
 }
 
 
-
 void checkFood() {
     if(field[currPos.row][currPos.col] == 2) {
         score++;
