@@ -6,7 +6,6 @@
 /*
     TODO: 
         - If score > highscore => show at gameover
-        - Restart
         - Sounds/ Optik
 */
 
