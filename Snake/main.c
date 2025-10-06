@@ -5,10 +5,9 @@
 
 /*
     TODO: 
-        - Score einblenden (bspw. bei Game Over)
-        - Alltime Highscore bei Start zeigen
+        - If score > highscore => show at gameover
         - Restart
-        - Sounds
+        - Sounds/ Optik
 */
 
 #include <msp430.h>
@@ -61,16 +60,65 @@
     Displaygröße: 128x128 (y wird aber gestreckt)
 
     Timer A0 = delay
+    Timer A1 = tick for main loop
 
     Feldgröße (Pixel)	Felder pro Achse
         8×8	                16×16      
 */
 
+
+volatile uint8_t __attribute__((section(".infoD"))) highscore;
+
+void initFlash(void) {
+    FCTL3 = FWKEY + LOCK; //lock Flash
+}
+
+uint8_t readFlash(void) {
+    return highscore;
+}
+
+void eraseFlash(void) {
+    uint8_t *ptr = (uint8_t *)&highscore;
+
+    __disable_interrupt(); 
+    FCTL3 = FWKEY;             //unlock
+    FCTL1 = FWKEY + ERASE;     //erase mode
+    *ptr = 0;                  //dummy write starts erasing
+
+    while (FCTL3 & BUSY);      //wait until done
+
+    FCTL1 = FWKEY;             //end
+    FCTL3 = FWKEY + LOCK;
+    __enable_interrupt();
+}
+
+void writeFlash(uint8_t newScore) {
+    uint8_t *ptr = (uint8_t *)&highscore;
+
+    __disable_interrupt(); 
+    eraseFlash();              //erase segment
+
+    FCTL3 = FWKEY;             //unlock
+    FCTL1 = FWKEY + WRT;       //active write
+    *ptr = newScore;           //write byte
+
+    FCTL1 = FWKEY;             //end
+    FCTL3 = FWKEY + LOCK;
+    __enable_interrupt();
+}
+
+//debug
+void clearFlash(){
+    writeFlash(0x00);
+}
+
+
 unsigned int joyX, joyY;
-unsigned int score = 0;
+uint8_t score = 0;
 volatile uint8_t tick = 0;
 
 uint8_t field[ROWS][COLS];
+
 
 typedef struct {
     uint8_t row;
@@ -82,10 +130,12 @@ GridPos currPos; //max 0-15 für row&col
 GridPos snake[MAX_SNAKE_LENGTH];
 uint16_t snakeLength = 1;
 
+
 typedef struct {
     uint8_t x;
     uint8_t y;
 } PixelPos; 
+
 
 typedef enum {
     CENTER,
@@ -96,6 +146,7 @@ typedef enum {
 } Dir;
 
 volatile Dir currDir = CENTER;
+
 
 enum RegType { REG_BIT, REG_VAL };
 
@@ -149,11 +200,7 @@ void initMCU(){
             *(volatile unsigned int*)ops[i].reg = ops[i].value;
         }
     }
-    for (int i = 0; i < ROWS; i++){
-        for (int j = 0; j < COLS; j++){
-            field[i][j] = 0;
-        }
-    }
+    initFlash();
     __bis_SR_register(GIE);
 }
 
@@ -202,31 +249,38 @@ void setup(){
     
     draw(0, 0, 128, 128, BG);
     delay(2000);
-    setText(centerText(NM), 25, NM, WHITE, BG);
+    setText(centerText(NM), 30, NM, WHITE, BG);
     delay(2000);
-    setText(centerText(BY), 47, BY, WHITE, BG);
-    setText(centerText(AT), 69, AT, WHITE, BG);
+    setText(centerText(BY), 52, BY, WHITE, BG);
+    setText(centerText(AT), 74, AT, WHITE, BG);
     delay(2000);
     draw(0, 0, 128, 128, BG);
     delay(500);  
 }
 
 
-void start(){    
+void start(){ 
+    //clearFlash(); //debug
+    uint8_t hs = readFlash();   
+    char hsText[32]; 
     sb(P1OUT, BIT0);
-    setText(centerText(PR), 35, PR, WHITE, BG);
-    setText(centerText(ST), 70, ST, WHITE, BG);
+    sprintf(hsText, "Highscore: %u", hs);
+    setText(centerText(PR), 20, PR, WHITE, BG);
+    setText(centerText(ST), 55, ST, WHITE, BG);
+    setText(centerText(hsText), 85, hsText, WHITE, BG);
     goto start;
     while (!(P1IFG & BIT1) && !(P2IFG & BIT1)){
-        setText(centerText(PR), 35, PR, WHITE, BG);
-        setText(centerText(ST), 70, ST, WHITE, BG);
+        setText(centerText(PR), 20, PR, WHITE, BG);
+        setText(centerText(ST), 55, ST, WHITE, BG);
+        setText(centerText(hsText), 85, hsText, WHITE, BG);
         tb(P1OUT, BIT0);
         tb(P4OUT, BIT7);
         //Hier Buzzer anschalten
     start:
         delay(600);
-        setText(centerText(PR), 35, PR, BG, BG);
-        setText(centerText(ST), 70, ST, BG, BG);
+        setText(centerText(PR), 20, PR, BG, BG);
+        setText(centerText(ST), 55, ST, BG, BG);
+        setText(centerText(hsText), 85, hsText, BG, BG);
         tb(P1OUT, BIT0);
         tb(P4OUT, BIT7);
         //Hier Buzzer ausschalten
@@ -329,9 +383,18 @@ void checkFood() {
 
 void main(){
     setup();
+
+    restart:
     start();
 
     srand(TA1R);
+
+    for (int i = 0; i < ROWS; i++){
+        for (int j = 0; j < COLS; j++){
+            field[i][j] = 0;
+        }
+    }
+
     currPos = (GridPos){8, 8};
     field[currPos.row][currPos.col] = 1;
     snake[0] = currPos;
@@ -366,12 +429,23 @@ void main(){
             } else {
                 draw(0, 0, 128, 128, BG);
                 setText(centerText(GO), 58, GO, WHITE, BG);
+                char sText[32]; 
+                sprintf(sText, "Score: %u", score);
+                setText(centerText(sText), 85, sText, WHITE, BG);
                 break;
             }
 
             tick = 0;
         }
     }
+    
+    if (score > readFlash()){
+        writeFlash(score);
+    }
+
+    delay(5000);
+    draw(0, 0, 128, 128, BG);
+    goto restart;
 }
 
 
