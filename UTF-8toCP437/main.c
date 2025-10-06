@@ -55,11 +55,11 @@ void replace(const char* input_path, const char* output_path, const char* replac
             if (c == '"') {
                 in_string = true;
                 fputs(replacement, fout);
-                continue;
+                continue; //remove to include literal
             } else if (c == '\'') {
                 in_char = true;
                 fputs(replacement, fout);
-                continue;
+                continue; //remove to include literal
             }
         }
         fputc(c, fout);
