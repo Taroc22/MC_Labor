@@ -111,13 +111,11 @@ void clearFlash(){
     writeFlash(0x00);
 }
 
-
 unsigned int joyX, joyY;
 uint8_t score = 0;
 volatile uint8_t tick = 0;
 
 uint8_t field[ROWS][COLS];
-
 
 typedef struct {
     uint8_t row;
@@ -129,12 +127,10 @@ GridPos currPos; //max 0-15 für row&col
 GridPos snake[MAX_SNAKE_LENGTH];
 uint16_t snakeLength = 1;
 
-
 typedef struct {
     uint8_t x;
     uint8_t y;
 } PixelPos; 
-
 
 typedef enum {
     CENTER,
