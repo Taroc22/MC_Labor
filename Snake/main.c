@@ -98,7 +98,7 @@ void writeFlash(uint8_t newScore) {
     eraseFlash();              //erase segment
 
     FCTL3 = FWKEY;             //unlock
-    FCTL1 = FWKEY + WRT;       //active write
+    FCTL1 = FWKEY + WRT;       //write mode
     *ptr = newScore;           //write byte
 
     FCTL1 = FWKEY;             //end
