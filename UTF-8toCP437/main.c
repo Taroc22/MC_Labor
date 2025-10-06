@@ -4,6 +4,8 @@
 #include <string.h>
 
 //gcc main.c -o main.exe && main.exe input.c out.c "REPLACEMENT"
+//converts all string literals ("" & '') from utf-8 to CP437
+//conversion not implemented yet
 
 void replace(const char* input_path, const char* output_path, const char* replacement) {
     FILE* fin = fopen(input_path, "r");
