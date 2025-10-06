@@ -5,7 +5,6 @@
 
 //gcc main.c -o main.exe && main.exe input.c out.c "REPLACEMENT"
 
-
 void replace(const char* input_path, const char* output_path, const char* replacement) {
     FILE* fin = fopen(input_path, "r");
     if (!fin) {
