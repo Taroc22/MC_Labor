@@ -2,6 +2,7 @@
     @desc: converts all string literals ("" & '') from UTF-8 to CP850
     @author: Amir Tannouri | 2025
 	@cmd: gcc main.c -o main.exe && main.exe input.c out.c "REPLACEMENT"
+	@info: escape sequences are not implemented yet 
 */
 
 #include <stdio.h>
@@ -67,6 +68,11 @@ void replace(const char* input_path, const char* output_path, const char* replac
     fclose(fout);
 }
 
+uint8_t fallback(uint32_t cp){
+	return FALLBACK;
+}
+
+
 //def utf8_to_unicode()
 //return everything below 127 as it is, just as an uint32_t
 //if unicode would be >2byte return 256 for fallback in unicode_to_cp850()
@@ -74,13 +80,13 @@ void replace(const char* input_path, const char* output_path, const char* replac
 //first 128 characters in CP850 == ASCII => same unicode
 uint8_t unicode_to_cp850(uint32_t codepoint) {
 	if (codepoint > 255)
-		return FALLBACK;
+		return fallback(codepoint);
 	if (codepoint < 128)
         return (uint8_t)codepoint;
     for (int i = 0; cp850_map[i].unicode; ++i)
         if (cp850_map[i].unicode == codepoint)
             return cp850_map[i].cp850;
-    return FALLBACK;
+    return fallback(codepoint);
 }
 
 
