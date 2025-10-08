@@ -1,3 +1,9 @@
+/*
+    @desc: converts all string literals ("" & '') from UTF-8 to CP437
+    @author: Amir Tannouri | 2025
+	@cmd: gcc main.c -o main.exe && main.exe input.c out.c "REPLACEMENT"
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -6,8 +12,6 @@
 
 #define FALLBACK '?'
 
-//gcc main.c -o main.exe && main.exe input.c out.c "REPLACEMENT"
-//converts all string literals ("" & '') from UTF-8 to CP437
 
 void replace(const char* input_path, const char* output_path, const char* replacement) {
     FILE* fin = fopen(input_path, "r");

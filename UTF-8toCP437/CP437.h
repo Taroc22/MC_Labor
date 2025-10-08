@@ -1,10 +1,13 @@
+/*
+	@desc: unicode map for CP437 
+    @author: Amir Tannouri | 2025
+    @info: characters 0-0x7F not included because the unicode/ASCII is identical with CP437
+*/
+
 #ifndef CP437_H
 #define CP437_H
 
 #include <stdint.h>
-
-//unicode map for CP437 
-//characters 0-0x7F not included because the unicode/ASCII is identical with CP437
 
 typedef struct {
     uint32_t unicode;

@@ -1,3 +1,7 @@
+/*
+	testfile for charset converter; content has no relevance 
+*/
+
 #include <msp430.h>
 
 #define TIMER_INTERVAL 0xFFF
