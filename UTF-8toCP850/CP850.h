@@ -1,7 +1,7 @@
 /*
 	@desc: unicode map for CP850 
     @author: Amir Tannouri | 2025
-    @info: characters 0-0x7F not included because their unicode/ASCII is identical with CP850
+    @info: characters 0-0x7F are not included because they are identical with Unicode/ASCII
 */
 
 #ifndef CP580_H
