@@ -69,6 +69,7 @@ void replace(const char* input_path, const char* output_path, const char* replac
 
 //def utf8_to_unicode()
 //return everything below 127 as it is, just as an uint32_t
+//if unicode would be >2byte return 256 for fallback in unicode_to_cp437()
 
 //first 128 characters in CP437 == ASCII => same unicode
 uint8_t unicode_to_cp437(uint32_t codepoint) {
