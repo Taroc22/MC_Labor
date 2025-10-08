@@ -1,5 +1,5 @@
 /*
-    @desc: converts all string literals ("" & '') from UTF-8 to CP437
+    @desc: converts all string literals ("" & '') from UTF-8 to CP437/CP850
     @author: Amir Tannouri | 2025
 	@cmd: gcc main.c -o main.exe && main.exe input.c out.c "REPLACEMENT"
 */

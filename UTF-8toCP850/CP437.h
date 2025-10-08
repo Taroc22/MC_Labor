@@ -1,7 +1,7 @@
 /*
 	@desc: unicode map for CP437 
     @author: Amir Tannouri | 2025
-    @info: characters 0-0x7F not included because the unicode/ASCII is identical with CP437
+    @info: characters 0-0x7F not included because their unicode/ASCII is identical with CP437
 */
 
 #ifndef CP437_H
@@ -142,7 +142,7 @@ static const Map cp437_map[] = {
     {0x207F, 0xFC}, // ⁿ
     {0x00B2, 0xFD}, // ²
     {0x25A0, 0xFE}, // ■
-    {0x00A0, 0xFF}, //   (non-breaking space)
+    {0x00A0, 0xFF}, // NBSP (non-breaking space)
     {0, 0}          // Terminator
 };
 
