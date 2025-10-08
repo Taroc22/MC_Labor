@@ -197,6 +197,8 @@ void initMCU(){
     }
     initFlash();
     __bis_SR_register(GIE);
+    ST7735_interface_init();  
+    ST7735_display_init();
 }
 
 
@@ -239,8 +241,6 @@ Dir scaleADC(uint16_t x, uint16_t y) {
 
 void setup(){
     initMCU();
-    ST7735_interface_init();  
-    ST7735_display_init();
     
     draw(0, 0, 128, 128, BG);
     delay(2000);
