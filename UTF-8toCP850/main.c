@@ -75,7 +75,7 @@ uint8_t fallback(uint32_t cp){
 
 //def utf8_to_unicode()
 //return everything below 127 as it is, just as an uint32_t
-//if unicode would be >2byte return 256 for fallback in unicode_to_cp850()
+//if unicode would be >1byte return 256 for fallback in unicode_to_cp850()
 
 //first 128 characters in CP850 == ASCII => same unicode
 uint8_t unicode_to_cp850(uint32_t codepoint) {
