@@ -2,10 +2,12 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include "CP437.h"
+
+#define FALLBACK '?'
 
 //gcc main.c -o main.exe && main.exe input.c out.c "REPLACEMENT"
-//converts all string literals ("" & '') from utf-8 to CP437
-//conversion not implemented yet
+//converts all string literals ("" & '') from UTF-8 to CP437
 
 void replace(const char* input_path, const char* output_path, const char* replacement) {
     FILE* fin = fopen(input_path, "r");
@@ -27,49 +29,55 @@ void replace(const char* input_path, const char* output_path, const char* replac
     bool escape = false;
 
     while ((c = fgetc(fin)) != EOF) {
-        if (in_string) {
-            if (escape) {
-                escape = false;
-                continue;
-            }
-            if (c == '\\') {
-                escape = true;
-                continue;
-            }
-            if (c == '"') {
+        if (in_string || in_char) {
+            char quote = in_string ? '"' : '\'';
+
+            if (c == quote) {
+                fputc(quote, fout);
                 in_string = false;
-            }
-            continue;
-        } else if (in_char) {
-            if (escape) {
-                escape = false;
-                continue;
-            }
-            if (c == '\\') {
-                escape = true;
-                continue;
-            }
-            if (c == '\'') {
                 in_char = false;
+                continue;
             }
+			
+			// c checken und mappen
+			
+            fputs(replacement, fout);
             continue;
+
         } else {
             if (c == '"') {
                 in_string = true;
-                fputs(replacement, fout);
-                continue; //remove to include literal
+                fputc('"', fout);
+                continue;
             } else if (c == '\'') {
                 in_char = true;
-                fputs(replacement, fout);
-                continue; //remove to include literal
+                fputc('\'', fout);
+                continue;
             }
         }
+
         fputc(c, fout);
     }
 
     fclose(fin);
     fclose(fout);
 }
+
+//def utf8_to_unicode()
+//return everything below 127 as it is, just as an uint32_t
+
+//first 128 characters in CP437 == ASCII => same unicode
+uint8_t unicode_to_cp437(uint32_t codepoint) {
+	if (codepoint > 255)
+		return FALLBACK;
+	if (codepoint < 128)
+        return (uint8_t)codepoint;
+    for (int i = 0; cp437_map[i].unicode; ++i)
+        if (cp437_map[i].unicode == codepoint)
+            return cp437_map[i].cp437;
+    return FALLBACK;
+}
+
 
 int main(int argc, char* argv[]) {
     if (argc != 4) {
