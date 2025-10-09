@@ -1,8 +1,9 @@
 /*
     @desc: converts all string literals ("" & '') from UTF-8 to CP850
     @author: Amir Tannouri | 2025
-	@cmd: gcc main.c -o main.exe && main.exe input.c out.c "REPLACEMENT"
-	@info: escape sequences are not implemented yet 
+	@cmd: gcc main.c -o main.exe && main.exe input.c out.c
+	@info: escape sequences are not fully implemented yet (e.g. \x43 too)
+	@info: '' not fully tested/ implemented yet
 */
 
 #include <stdio.h>
@@ -13,6 +14,53 @@
 #include "CP850.h"
 
 #define FALLBACK '?'
+
+
+uint8_t fallback(uint32_t cp){
+	return FALLBACK;
+}
+
+
+uint32_t utf8_to_unicode(const char *utf8, int bytescount) {
+    uint32_t codepoint = 0;
+
+    if (bytescount == 1) {
+        // 1-Byte ASCII
+        codepoint = (uint8_t)utf8[0];
+    } else if (bytescount == 2) {
+        // 110xxxxx 10xxxxxx
+        codepoint = ((utf8[0] & 0x1F) << 6) |
+                     (utf8[1] & 0x3F);
+    } else if (bytescount == 3) {
+        // 1110xxxx 10xxxxxx 10xxxxxx
+        codepoint = ((utf8[0] & 0x0F) << 12) |
+                    ((utf8[1] & 0x3F) << 6) |
+                     (utf8[2] & 0x3F);
+    } else if (bytescount == 4) {
+        // 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+        codepoint = ((utf8[0] & 0x07) << 18) |
+                    ((utf8[1] & 0x3F) << 12) |
+                    ((utf8[2] & 0x3F) << 6) |
+                     (utf8[3] & 0x3F);
+    } else {
+        // invalid byte count; should not be possible to occure
+        return (uint32_t)FALLBACK;
+    }
+
+    return codepoint;
+}
+
+
+uint8_t unicode_to_cp850(uint32_t codepoint) {
+	if (codepoint > 0x25A0) // biggest unicode in CP850
+		return fallback(codepoint);
+	if (codepoint < 128) // ASCII
+        return (uint8_t)codepoint;
+    for (int i = 0; cp850_map[i].unicode; ++i)
+        if (cp850_map[i].unicode == codepoint)
+            return cp850_map[i].cp850;
+    return fallback(codepoint);
+}
 
 
 void convert(const char* input_path, const char* output_path) {
@@ -33,6 +81,7 @@ void convert(const char* input_path, const char* output_path) {
     bool in_string = false;
     bool in_char = false;
     bool escape = false;
+	bool valid = false;
 
     while ((c = fgetc(fin)) != EOF) {
         if (in_string || in_char) {
@@ -71,7 +120,7 @@ void convert(const char* input_path, const char* output_path) {
                 expected_bytes = 4;
             } else {
                 fprintf(stderr, "Invalid UTF-8 start byte: 0x%x\n", first);
-                fputc(fallback(), fout);
+                fputc(FALLBACK, fout);
                 continue;
             }
 
@@ -79,21 +128,30 @@ void convert(const char* input_path, const char* output_path) {
             utf8_bytes[0] = first;
 
             for (int i = 1; i < expected_bytes; i++) {
-                int next = fgetc(fin);
-                if (next == EOF) break;
-                if ((next & 0xC0) != 0x80) {
-                    fprintf(stderr, "Invalid UTF-8 continuation byte: 0x%x\n", next);
-                    fputc(fallback(), fout);
-                    break;
-                }
-                utf8_bytes[i] = (char)next;
-            }
-
-            int unicode = utf8_to_unicode(utf8_bytes, &expected_bytes);
-            // Danach: Unicode -> CP850 -> in Datei schreiben
-            // z.B. char cp850 = unicode_to_cp850(unicode);
-            // fputc(cp850, fout);
-
+				int next = fgetc(fin);
+				if (next == EOF) {
+					valid = false;
+					break;
+				}
+				if ((next & 0xC0) != 0x80) {
+					fprintf(stderr, "Invalid UTF-8 continuation byte: 0x%x\n", next);
+					valid = false;
+					break;
+				}
+				utf8_bytes[i] = (char)next;
+				valid = true;
+			}
+			
+			if (valid) {
+				uint32_t unicode = utf8_to_unicode(utf8_bytes, &expected_bytes);
+				uint8_t cp = unicode_to_cp850(unicode);
+				//fputc(cp, fout);	//Festlegung: Alle Zeichen innerhalb von "" werden als \xYY dargestellt
+									//Escape Sequences werden unverändert eingefügt (Feststellen der Länge der Sequenz)
+			} else {
+				fputc(FALLBACK, fout);
+				fprintf(stderr, "Invalid UTF-8 character");
+			}
+			
             continue;
         } else {
             if (c == '"') {
@@ -112,85 +170,6 @@ void convert(const char* input_path, const char* output_path) {
 
     fclose(fin);
     fclose(fout);
-}
-
-
-
-/*
-void convert(const char* input_path, const char* output_path, const char* replacement) {
-    FILE* fin = fopen(input_path, "r");
-    if (!fin) {
-        perror("Error while opening input file");
-        exit(1);
-    }
-
-    FILE* fout = fopen(output_path, "w");
-    if (!fout) {
-        perror("Error while opening output file");
-        fclose(fin);
-        exit(1);
-    }
-
-    int c;
-    bool in_string = false;
-    bool in_char = false;
-    bool escape = false;
-
-    while ((c = fgetc(fin)) != EOF) {
-        if (in_string || in_char) {
-            char quote = in_string ? '"' : '\'';
-
-            if (c == quote) {
-                fputc(quote, fout);
-                in_string = false;
-                in_char = false;
-                continue;
-            }
-			
-			
-            //Hier soll c in unicode dekordiert werden
-			fputs(replacement, fout);
-            continue;
-
-        } else {
-            if (c == '"') {
-                in_string = true;
-                fputc('"', fout);
-                continue;
-            } else if (c == '\'') {
-                in_char = true;
-                fputc('\'', fout);
-                continue;
-            }
-        }
-
-        fputc(c, fout);
-    }
-
-    fclose(fin);
-    fclose(fout);
-}
-*/
-uint8_t fallback(uint32_t cp){
-	return FALLBACK;
-}
-
-
-//def utf8_to_unicode()
-int utf8_to_unicode(const char *utf8, int *bytes); // angenommen, existiert schon
-//return everything below 127 as it is, just as an uint32_t
-//if unicode would be >1byte return 256 for fallback in unicode_to_cp850()
-
-//first 128 characters in CP850 == ASCII => same unicode
-uint8_t unicode_to_cp850(uint32_t codepoint) {
-	if (codepoint > 255)
-		return fallback(codepoint);
-	if (codepoint < 128)
-        return (uint8_t)codepoint;
-    for (int i = 0; cp850_map[i].unicode; ++i)
-        if (cp850_map[i].unicode == codepoint)
-            return cp850_map[i].cp850;
-    return fallback(codepoint);
 }
 
 
