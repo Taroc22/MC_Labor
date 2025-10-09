@@ -4,8 +4,8 @@
     @info: characters 0-0x7F are not included because they are identical with Unicode/ASCII
 */
 
-#ifndef CP580_H
-#define CP580_H
+#ifndef CP850_H
+#define CP850_H
 
 #include <stdint.h>
 
@@ -146,4 +146,4 @@ static const Map cp850_map[] = {
     {0, 0}          // Terminator
 };
 
-#endif // CP580_H
+#endif // CP850_H
