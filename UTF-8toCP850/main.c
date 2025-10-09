@@ -14,7 +14,7 @@
 #define FALLBACK '?'
 
 
-void replace(const char* input_path, const char* output_path, const char* replacement) {
+void convert(const char* input_path, const char* output_path, const char* replacement) {
     FILE* fin = fopen(input_path, "r");
     if (!fin) {
         perror("Error while opening input file");
@@ -96,7 +96,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    replace(argv[1], argv[2], argv[3]);
+    convert(argv[1], argv[2], argv[3]);
     printf("File processed: %s -> %s\n", argv[1], argv[2]);
     return 0;
 }
