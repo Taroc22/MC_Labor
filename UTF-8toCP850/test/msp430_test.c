@@ -30,6 +30,10 @@ void printAllChars(void)
     }
 }
 
+void printTestSequ(void){
+    char buffer[] = "H\x8E\x99" "B\x9A\xE1L";
+    drawTextLine(2, 0, buffer, COLOR_WHITE, COLOR_BLACK);
+}
 
 void main(void)
 {
@@ -38,5 +42,6 @@ void main(void)
     ST7735_interface_init();
     ST7735_display_init();
 
-    printAllChars();
+    //printAllChars();
+    printTestSequ();
 }
