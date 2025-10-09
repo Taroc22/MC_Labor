@@ -147,6 +147,7 @@ void convert(const char* input_path, const char* output_path) {
 				uint8_t cp = unicode_to_cp850(unicode);
 				//fputc(cp, fout);	//Festlegung: Alle Zeichen innerhalb von "" werden als \xYY dargestellt
 									//Escape Sequences werden unverändert eingefügt (Feststellen der Länge der Sequenz)
+									//'' enthalten maxmial 1byte (auch escape Sequence <= 1byte möglich)
 			} else {
 				fputc(FALLBACK, fout);
 				fprintf(stderr, "Invalid UTF-8 character");
