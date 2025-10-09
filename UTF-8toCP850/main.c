@@ -9,11 +9,114 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdint.h>
 #include "CP850.h"
 
 #define FALLBACK '?'
 
 
+void convert(const char* input_path, const char* output_path) {
+    FILE* fin = fopen(input_path, "r");
+    if (!fin) {
+        perror("Error while opening input file");
+        exit(1);
+    }
+
+    FILE* fout = fopen(output_path, "w");
+    if (!fout) {
+        perror("Error while opening output file");
+        fclose(fin);
+        exit(1);
+    }
+
+    int c;
+    bool in_string = false;
+    bool in_char = false;
+    bool escape = false;
+
+    while ((c = fgetc(fin)) != EOF) {
+        if (in_string || in_char) {
+            char quote = in_string ? '"' : '\'';
+
+            if (escape) {
+                fputc(c, fout); // Escaped char direkt schreiben
+                escape = false;
+                continue;
+            }
+
+            if (c == '\\') {
+                escape = true;
+                fputc(c, fout);
+                continue;
+            }
+
+            if (c == quote) {
+                fputc(quote, fout);
+                in_string = false;
+                in_char = false;
+                continue;
+            }
+
+            // extract UTF-8 character
+            unsigned char first = (unsigned char)c;
+            int expected_bytes = 0;
+
+            if ((first & 0x80) == 0) {
+                expected_bytes = 1; // ASCII
+            } else if ((first & 0xE0) == 0xC0) {
+                expected_bytes = 2;
+            } else if ((first & 0xF0) == 0xE0) {
+                expected_bytes = 3;
+            } else if ((first & 0xF8) == 0xF0) {
+                expected_bytes = 4;
+            } else {
+                fprintf(stderr, "Invalid UTF-8 start byte: 0x%x\n", first);
+                fputc(fallback(), fout);
+                continue;
+            }
+
+            char utf8_bytes[4];
+            utf8_bytes[0] = first;
+
+            for (int i = 1; i < expected_bytes; i++) {
+                int next = fgetc(fin);
+                if (next == EOF) break;
+                if ((next & 0xC0) != 0x80) {
+                    fprintf(stderr, "Invalid UTF-8 continuation byte: 0x%x\n", next);
+                    fputc(fallback(), fout);
+                    break;
+                }
+                utf8_bytes[i] = (char)next;
+            }
+
+            int unicode = utf8_to_unicode(utf8_bytes, &expected_bytes);
+            // Danach: Unicode -> CP850 -> in Datei schreiben
+            // z.B. char cp850 = unicode_to_cp850(unicode);
+            // fputc(cp850, fout);
+
+            continue;
+        } else {
+            if (c == '"') {
+                in_string = true;
+                fputc('"', fout);
+                continue;
+            } else if (c == '\'') {
+                in_char = true;
+                fputc('\'', fout);
+                continue;
+            }
+        }
+
+        fputc(c, fout);
+    }
+
+    fclose(fin);
+    fclose(fout);
+}
+
+
+
+/*
 void convert(const char* input_path, const char* output_path, const char* replacement) {
     FILE* fin = fopen(input_path, "r");
     if (!fin) {
@@ -44,9 +147,9 @@ void convert(const char* input_path, const char* output_path, const char* replac
                 continue;
             }
 			
-			// c checken und mappen
 			
-            fputs(replacement, fout);
+            //Hier soll c in unicode dekordiert werden
+			fputs(replacement, fout);
             continue;
 
         } else {
@@ -67,13 +170,14 @@ void convert(const char* input_path, const char* output_path, const char* replac
     fclose(fin);
     fclose(fout);
 }
-
+*/
 uint8_t fallback(uint32_t cp){
 	return FALLBACK;
 }
 
 
 //def utf8_to_unicode()
+int utf8_to_unicode(const char *utf8, int *bytes); // angenommen, existiert schon
 //return everything below 127 as it is, just as an uint32_t
 //if unicode would be >1byte return 256 for fallback in unicode_to_cp850()
 
@@ -91,12 +195,12 @@ uint8_t unicode_to_cp850(uint32_t codepoint) {
 
 
 int main(int argc, char* argv[]) {
-    if (argc != 4) {
-        printf("Usage: %s <input.c> <output.c> <replacement>\n", argv[0]);
+    if (argc != 3) {
+        printf("Usage: %s <input.c> <output.c>\n", argv[0]);
         return 1;
     }
 
-    convert(argv[1], argv[2], argv[3]);
+    convert(argv[1], argv[2]);
     printf("File processed: %s -> %s\n", argv[1], argv[2]);
     return 0;
 }
