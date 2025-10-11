@@ -8,7 +8,7 @@
 #define CTL_STEP 30
 
 void main(void){
-    'Te\st'
+    "AB\tD"
     //LCD Beleuchtung ist angeschlossen an P2.4 entspricht TA2.1 (Timer A2 CCR1)
     //Buzzer ist angeschlossen an P2.5 entspricht TA2.2 (Timer A2 CCR2)
 
@@ -38,7 +38,6 @@ void main(void){
 
     P2DIR |= BIT4; // Pin als Ausgang festlegen
     P2SEL |= BIT4; // Peripherie Mode des LCD Pins
-    "Test"
     while(1){
         if (!(P1IN & BIT1)) {    // Invert wegen PullUp
             if (TA2CCR2 >= CTL_STEP) {  // prüfen, dass nicht < 0 (Abfrage von TA2CCR2 reicht da CCR1 und CCR2 gleich initialisiert werden)

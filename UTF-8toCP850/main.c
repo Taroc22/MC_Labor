@@ -53,7 +53,7 @@ void write_escaped_for_c_literal(FILE *f, const char *s) {
 				fprintf(f, "\\x%02X", 0x5c); // '\'
 				break;
             default:
-				fprintf(f, "\\x%02X", ch);
+				fprintf(f, "\\x%02X", *s);
         }
 		s++;
     }
@@ -105,6 +105,91 @@ int unicode_to_cp850(uint32_t codepoint, uint8_t *out_cp) {
 }
 
 
+void handle_octal(FILE *fin, FILE *fout, char c){
+	int oct[3];
+	oct[0] = c;
+	int count = 1;
+
+	for (; count < 3; count++) {
+		int next = fgetc(fin);
+		if (next >= '0' && next <= '7') {
+			oct[count] = next;
+		} else { // revert to old cursor pos
+			for (int j = count - 1; j >= 0; j--) {
+				ungetc(oct[j], fin);
+			}
+			ungetc(next, fin);
+			break;
+		}
+	}
+
+	if (count == 3) {
+		for (int i = 0; i < 3; i++) {
+			fprintf(fout, "\\x%02X", oct[i]);
+		}
+	}else{
+		fputc(FALLBACK, fout);
+	}
+}
+
+
+void handle_u(FILE *fin, FILE *fout, char c){
+	int oct[4];
+	oct[0] = c;
+	int count = 1;
+
+	for (; count < 4; count++) {
+		int next = fgetc(fin);
+		if ((next >= '0' && next <= '9') || (next >= 'A' && next <= 'F') || (next >= 'a' && next <= 'f')) {
+			oct[count] = next;
+		} else { // revert to old cursor pos
+			for (int j = count - 1; j >= 0; j--) {
+				ungetc(oct[j], fin);
+			}
+			ungetc(next, fin);
+			break;
+		}
+	}
+
+	if (count == 4) {
+		fprintf(fout, "\\x%02X", 'u');
+		for (int i = 0; i < 4; i++) {
+			fprintf(fout, "\\x%02X", oct[i]);
+		}
+	}else{
+		fputc(FALLBACK, fout);
+	}
+}
+
+void handle_U(FILE *fin, FILE *fout, char c){
+	int oct[8];
+	oct[0] = c;
+	int count = 1;
+
+	for (; count < 8; count++) {
+		int next = fgetc(fin);
+		if ((next >= '0' && next <= '9') || (next >= 'A' && next <= 'F') || (next >= 'a' && next <= 'f')) {
+			oct[count] = next;
+		} else { // revert to old cursor pos
+			for (int j = count - 1; j >= 0; j--) {
+				ungetc(oct[j], fin);
+			}
+			ungetc(next, fin);
+			break;
+		}
+	}
+
+	if (count == 8) {
+		fprintf(fout, "\\x%02X", 'U');
+		for (int i = 0; i < 8; i++) {
+			fprintf(fout, "\\x%02X", oct[i]);
+		}
+	}else{
+		fputc(FALLBACK, fout);
+	}
+}
+
+
 void convert(const char* input_path, const char* output_path) {
     FILE* fin = fopen(input_path, "r");
     if (!fin) {
@@ -130,47 +215,43 @@ void convert(const char* input_path, const char* output_path) {
             char quote = in_string ? '"' : '\'';
 
             if (escape) {
-				
-				// octal \nnn
-				if (c >= '0' && c <= '7') {	
-					//fprintf(fout, "\\x%02X", c);
-	
-				}else{
-					switch (c) {
-						case 'a': fprintf(fout, "\\x%02X", c); break;
-						case 'b': fprintf(fout, "\\x%02X", c); break;
-						case 'e': fprintf(fout, "\\x%02X", c); break;
-						case 'f': fprintf(fout, "\\x%02X", c); break;
-						case 'n': fprintf(fout, "\\x%02X", c); break;
-						case 'r': fprintf(fout, "\\x%02X", c); break;
-						case 't': fprintf(fout, "\\x%02X", c); break;
-						case 'v': fprintf(fout, "\\x%02X", c); break;
-						case '\\': fprintf(fout, "\\x%02X", c); break;
-						case '\'': fprintf(fout, "\\x%02X", c); break;
-						case '"': fprintf(fout, "\\x%02X", c); break;
-						case '?': fprintf(fout, "\\x%02X", c); break;
-						case 'u': 
-							// \uhhhh
-							//fprintf(fout, "\\x%02X", c); 
-							break;
-						case 'U': 
-							// \Uhhhhhhhh
-							//fprintf(fout, "\\x%02X", c); 
-							break;
-						case 'x': 
-							// \xhh…
-							//fprintf(fout, "\\x%02X", c); 
-							break;
-						default:  fprintf(fout, "\\x%02X", FALLBACK); break;
-					}
+				// Komplette vorangestelle \ Sache noch falsch
+				switch (c) {
+					case '0': case '1': case '2': case '3':
+					case '4': case '5': case '6': case '7':
+						// \nnn
+						handle_octal(fin, fout, c);
+						break;
+					case 'a': case 'b': case 'e': case 'f':
+					case 'n': case 'r': case '"': case '?':
+					case 't': case 'v': case '\\': case '\'':
+						fprintf(fout, "\\x%02X", c); 
+						break;
+					case 'u': 
+						// \uhhhh
+						c = fgetc(fin);
+						handle_u(fin, fout, c); 
+						break;
+					case 'U': 
+						// \Uhhhhhhhh
+						c = fgetc(fin);
+						handle_U(fin, fout, c);
+						break;
+					case 'x': 
+						// \xhh…
+						//fprintf(fout, "\\x%02X", c); 
+						break;
+					default: fputc(c, fout); fputc(FALLBACK, fout); break; //????
 				}
+				printf("Test");
+				printf("C: %c", c);	//c scheint empty; debug in handle functions
                 escape = false;
                 continue;
             }
 
             if (c == '\\') {
                 escape = true;
-                fputc(c, fout);
+				fputc('\\', fout); //Hier auch evtl. Fehler
                 continue;
             }
 
