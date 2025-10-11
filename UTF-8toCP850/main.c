@@ -1,12 +1,11 @@
 /*
-    @desc: converts all string literals ("" & '') from UTF-8 to CP850
+    @desc: converts all literals ("" & '') from UTF-8 to CP850
     @author: Amir Tannouri | 2025
 	@cmd: gcc main.c -o main.exe && main.exe input.c out.c
 	
-	@info: escape sequences are not fully implemented yet (e.g. \x43 too)
-	//Festlegung: Alle Zeichen innerhalb von "" werden als \xYY dargestellt
-	//Escape Sequences werden unverändert eingefügt (Feststellen der Länge der Sequenz)
-	//'' enthalten maxmial 1byte (auch escape Sequence <= 1byte möglich)
+	@info: all valid C escape sequences (\a\b\e\f\n\r\t\v\\\'\"\?) stay untouched and are valid in CP850
+	@info: \nnn, \uhhhh and \Uhhhhhhhh stay untouched
+	@info: \xhh… not decided yet how to handle
 */
 
 #include <stdio.h>
@@ -20,7 +19,7 @@
 #define FALLBACK '?'	//replaces invalid characters; must not be A-F
 
 
-//replaces valid utf-8 characters that are non-existent in CP850
+//returns replacement for valid utf-8 characters that are non-existent in CP850
 const char* fallback_string(uint32_t cp) {
     switch (cp) {
         case 0x20AC: return "EUR";    // € -> "EUR"
@@ -42,9 +41,8 @@ void write_escaped_for_c_literal(FILE *f, const char *s) {
         fputc(FALLBACK, f);
         return;
     }
-    for (const unsigned char *p = (const unsigned char*)s; *p; ++p) {
-        unsigned char ch = *p;
-        switch (ch) {
+    while (*s) {
+        switch ((unsigned char)*s) {
             case '"':
 				fprintf(f, "\\x%02X", 0x5c); // '\'
 				fprintf(f, "\\x%02X", 0x22); // '"'
@@ -56,6 +54,7 @@ void write_escaped_for_c_literal(FILE *f, const char *s) {
             default:
 				fprintf(f, "\\x%02X", ch);
         }
+		s++;
     }
 }
 
@@ -130,7 +129,40 @@ void convert(const char* input_path, const char* output_path) {
             char quote = in_string ? '"' : '\'';
 
             if (escape) {
-                fputc(c, fout); // Escaped char direkt schreiben
+				
+				//octal \nnn
+				if (c >= '0' && c <= '7') {	
+					//fprintf(fout, "\\x%02X", c);
+	
+				}else{
+					switch (c) {
+						case 'a': fprintf(fout, "\\x%02X", c); break;
+						case 'b': fprintf(fout, "\\x%02X", c); break;
+						case 'e': fprintf(fout, "\\x%02X", c); break;
+						case 'f': fprintf(fout, "\\x%02X", c); break;
+						case 'n': fprintf(fout, "\\x%02X", c); break;
+						case 'r': fprintf(fout, "\\x%02X", c); break;
+						case 't': fprintf(fout, "\\x%02X", c); break;
+						case 'v': fprintf(fout, "\\x%02X", c); break;
+						case '\\': fprintf(fout, "\\x%02X", c); break;
+						case '\'': fprintf(fout, "\\x%02X", c); break;
+						case '"': fprintf(fout, "\\x%02X", c); break;
+						case '?': fprintf(fout, "\\x%02X", c); break;
+						case 'u': 
+							// \uhhhh
+							//fprintf(fout, "\\x%02X", c); 
+							break;
+						case 'U': 
+							// \Uhhhhhhhh
+							//fprintf(fout, "\\x%02X", c); 
+							break;
+						case 'x': 
+							// \xhh…
+							//fprintf(fout, "\\x%02X", c); 
+							break;
+						default:  fprintf(fout, "\\x%02X", FALLBACK);								   break;
+					}
+				}
                 escape = false;
                 continue;
             }
