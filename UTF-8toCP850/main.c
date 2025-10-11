@@ -16,10 +16,11 @@
 #include <ctype.h>
 #include "CP850.h"
 
-#define FALLBACK '?'	//replaces invalid characters; must not be A-F
+// replaces invalid characters; must not be A-F
+#define FALLBACK '?'	
 
 
-//returns replacement for valid utf-8 characters that are non-existent in CP850
+// returns replacement for valid utf-8 characters that are non-existent in CP850
 const char* fallback_string(uint32_t cp) {
     switch (cp) {
         case 0x20AC: return "EUR";    // € -> "EUR"
@@ -35,7 +36,7 @@ const char* fallback_string(uint32_t cp) {
 }
 
 
-//writes replacement characters as valid sequences
+// writes replacement characters as valid sequences
 void write_escaped_for_c_literal(FILE *f, const char *s) {
     if (!s) {
         fputc(FALLBACK, f);
@@ -88,7 +89,7 @@ uint32_t utf8_to_unicode(const char *utf8, int bytescount) {
     return codepoint;
 }
 
-//returns 1 if mapping exists, 0 if not
+// returns 1 if mapping exists, 0 if not
 int unicode_to_cp850(uint32_t codepoint, uint8_t *out_cp) {
     if (codepoint < 128) { //ASCII
         *out_cp = (uint8_t)codepoint;
@@ -130,7 +131,7 @@ void convert(const char* input_path, const char* output_path) {
 
             if (escape) {
 				
-				//octal \nnn
+				// octal \nnn
 				if (c >= '0' && c <= '7') {	
 					//fprintf(fout, "\\x%02X", c);
 	
