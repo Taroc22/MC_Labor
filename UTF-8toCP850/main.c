@@ -161,7 +161,7 @@ void convert(const char* input_path, const char* output_path) {
 							// \xhh…
 							//fprintf(fout, "\\x%02X", c); 
 							break;
-						default:  fprintf(fout, "\\x%02X", FALLBACK);								   break;
+						default:  fprintf(fout, "\\x%02X", FALLBACK); break;
 					}
 				}
                 escape = false;
