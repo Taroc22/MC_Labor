@@ -1,5 +1,5 @@
 /*
-    @desc: converts all literals ("" & '') from UTF-8 to CP850
+    @desc: converts all literals ("" & '') from UTF-8 to CP850 for C programs
     @author: Amir Tannouri | 2025
 	@cmd: gcc main.c -o main.exe && main.exe input.c out.c
 	
