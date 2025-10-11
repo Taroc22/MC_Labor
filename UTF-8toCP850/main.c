@@ -225,7 +225,7 @@ void convert(const char* input_path, const char* output_path) {
 					case 'a': case 'b': case 'e': case 'f':
 					case 'n': case 'r': case '"': case '?':
 					case 't': case 'v': case '\\': case '\'':
-						fprintf(fout, "\\x%02X", c); 
+						fprintf(fout, "\\x%02X", c); //am Besten als char nicht hex schreiben
 						break;
 					case 'u': 
 						// \uhhhh
