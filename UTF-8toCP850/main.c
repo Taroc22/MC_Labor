@@ -6,6 +6,8 @@
 	@info: all valid C escape sequences (\a\b\e\f\n\r\t\v\\\'\"\?) stay untouched and are valid in CP850
 	@info: \nnn, \uhhhh and \Uhhhhhhhh stay untouched
 	@info: \xhh… not decided yet how to handle
+	
+	@todo: ignore comments
 */
 
 #include <stdio.h>
@@ -125,13 +127,12 @@ void handle_octal(FILE *fin, FILE *fout, char c){
 
 	if (count == 3) {
 		for (int i = 0; i < 3; i++) {
-			fprintf(fout, "\\x%02X", oct[i]);
+			fputc(oct[i], fout);
 		}
 	}else{
 		fputc(FALLBACK, fout);
 	}
 }
-
 
 void handle_u(FILE *fin, FILE *fout, char c){
 	int oct[4];
@@ -189,6 +190,110 @@ void handle_U(FILE *fin, FILE *fout, char c){
 	}
 }
 
+// extract UTF-8 character
+int handle_char(FILE *fin, FILE *fout, char c, bool *valid, bool in_char){
+
+	unsigned char first = (unsigned char)c;
+	int expected_bytes = 0;
+
+	if ((first & 0x80) == 0) {
+		expected_bytes = 1; // ASCII
+	} else if ((first & 0xE0) == 0xC0) {
+		expected_bytes = 2;
+	} else if ((first & 0xF0) == 0xE0) {
+		expected_bytes = 3;
+	} else if ((first & 0xF8) == 0xF0) {
+		expected_bytes = 4;
+	} else {
+		fprintf(stderr, "Invalid UTF-8 start byte: 0x%x\n", first);
+		fputc(FALLBACK, fout);
+		return 0;
+	}
+
+	char utf8_bytes[4];
+	utf8_bytes[0] = first;
+
+	for (int i = 1; i < expected_bytes; i++) {
+		int next = fgetc(fin);
+		if (next == EOF) {
+			*valid = false;
+			return 1;
+		}
+		if ((next & 0xC0) != 0x80) {
+			fprintf(stderr, "Invalid UTF-8 continuation byte: 0x%x\n", next);
+			*valid = false;
+			return 1;
+		}
+		utf8_bytes[i] = (char)next;
+		*valid = true;
+	}
+	
+	
+	if (*valid) {
+		uint32_t unicode = utf8_to_unicode(utf8_bytes, expected_bytes);
+		uint8_t cp;
+		if (unicode_to_cp850(unicode, &cp)) {
+			fprintf(fout, "\\x%02X", cp);
+		} else {
+			const char *rep = fallback_string(unicode);
+			if (in_char) {
+				// max 1 char
+				if (rep && rep[0] && rep[1] == '\0' && rep[0] != '\'' && rep[0] != '\\' && isprint((unsigned char)rep[0])) {
+					fputc(rep[0], fout);
+				} else {
+					fputc(FALLBACK, fout);
+				}
+			} else {// in string
+				if (rep) {
+					write_escaped_for_c_literal(fout, rep);
+				} else {
+					fputc(FALLBACK, fout);
+				}
+			}
+		}
+	} else {
+		fputc(FALLBACK, fout);
+		fprintf(stderr, "Invalid UTF-8 character\n");
+	}
+	return 0;
+}
+
+void handle_escape(char c, FILE *fout){
+	switch (c) {
+		case 'a': case 'b': case 'e': case 'f':
+		case 'n': case 'r': case '"': case '?':
+		case 't': case 'v': case '\\': case '\'':
+			fputc('\\', fout); //Hier auch evtl. Fehler
+			fputc(c, fout);
+			break; //DONE!!!
+		case '0': case '1': case '2': case '3':
+		case '4': case '5': case '6': case '7':
+			// \nnn
+			fputc('\\', fout);
+			//handle_octal(fin, fout, c);	//Problem bei Fehlerfall, falsche \nnn Format
+			break;
+		case 'u': 
+			// \uhhhh
+			fputc('\\', fout); //Hier auch evtl. Fehler
+			//c = fgetc(fin);
+			//handle_u(fin, fout, c); 
+			break;
+		case 'U': 
+			// \Uhhhhhhhh
+			fputc('\\', fout); //Hier auch evtl. Fehler
+			//c = fgetc(fin);
+			//handle_U(fin, fout, c);
+			break;
+		case 'x': 
+			// \xhh…
+			fputc('\\', fout); //Hier auch evtl. Fehler
+			//fprintf(fout, "\\x%02X", c); 
+			break;
+		default:  
+			fputc(FALLBACK, fout); //dont write escape sequence
+			break;
+	}
+}
 
 void convert(const char* input_path, const char* output_path) {
     FILE* fin = fopen(input_path, "r");
@@ -215,43 +320,13 @@ void convert(const char* input_path, const char* output_path) {
             char quote = in_string ? '"' : '\'';
 
             if (escape) {
-				// Komplette vorangestelle \ Sache noch falsch
-				switch (c) {
-					case '0': case '1': case '2': case '3':
-					case '4': case '5': case '6': case '7':
-						// \nnn
-						handle_octal(fin, fout, c);
-						break;
-					case 'a': case 'b': case 'e': case 'f':
-					case 'n': case 'r': case '"': case '?':
-					case 't': case 'v': case '\\': case '\'':
-						fprintf(fout, "\\x%02X", c); //am Besten als char nicht hex schreiben
-						break;
-					case 'u': 
-						// \uhhhh
-						c = fgetc(fin);
-						handle_u(fin, fout, c); 
-						break;
-					case 'U': 
-						// \Uhhhhhhhh
-						c = fgetc(fin);
-						handle_U(fin, fout, c);
-						break;
-					case 'x': 
-						// \xhh…
-						//fprintf(fout, "\\x%02X", c); 
-						break;
-					default: fputc(c, fout); fputc(FALLBACK, fout); break; //????
-				}
-				printf("Test");
-				printf("C: %c", c);	//c scheint empty; debug in handle functions
+				handle_escape(c, fout);
                 escape = false;
                 continue;
             }
 
             if (c == '\\') {
                 escape = true;
-				fputc('\\', fout); //Hier auch evtl. Fehler
                 continue;
             }
 
@@ -261,72 +336,13 @@ void convert(const char* input_path, const char* output_path) {
                 in_char = false;
                 continue;
             }
-
-            // extract UTF-8 character
-            unsigned char first = (unsigned char)c;
-            int expected_bytes = 0;
-
-            if ((first & 0x80) == 0) {
-                expected_bytes = 1; // ASCII
-            } else if ((first & 0xE0) == 0xC0) {
-                expected_bytes = 2;
-            } else if ((first & 0xF0) == 0xE0) {
-                expected_bytes = 3;
-            } else if ((first & 0xF8) == 0xF0) {
-                expected_bytes = 4;
-            } else {
-                fprintf(stderr, "Invalid UTF-8 start byte: 0x%x\n", first);
-                fputc(FALLBACK, fout);
-                continue;
-            }
-
-            char utf8_bytes[4];
-            utf8_bytes[0] = first;
-
-            for (int i = 1; i < expected_bytes; i++) {
-				int next = fgetc(fin);
-				if (next == EOF) {
-					valid = false;
-					break;
-				}
-				if ((next & 0xC0) != 0x80) {
-					fprintf(stderr, "Invalid UTF-8 continuation byte: 0x%x\n", next);
-					valid = false;
-					break;
-				}
-				utf8_bytes[i] = (char)next;
-				valid = true;
-			}
 			
+			int tmp = handle_char(fin, fout, c, &valid, in_char);
+			if (tmp == 0)
+				continue;
+			else if (tmp == 1)
+				break;
 			
-			if (valid) {
-				uint32_t unicode = utf8_to_unicode(utf8_bytes, expected_bytes);
-				uint8_t cp;
-				if (unicode_to_cp850(unicode, &cp)) {
-					fprintf(fout, "\\x%02X", cp);
-				} else {
-					const char *rep = fallback_string(unicode);
-					if (in_char) {
-						// max 1 char
-						if (rep && rep[0] && rep[1] == '\0' && rep[0] != '\'' && rep[0] != '\\' && isprint((unsigned char)rep[0])) {
-							fputc(rep[0], fout);
-						} else {
-							fputc(FALLBACK, fout);
-						}
-					} else {// in string
-						if (rep) {
-							write_escaped_for_c_literal(fout, rep);
-						} else {
-							fputc(FALLBACK, fout);
-						}
-					}
-				}
-			} else {
-				fputc(FALLBACK, fout);
-				fprintf(stderr, "Invalid UTF-8 character\n");
-			}
-			
-            continue;
         } else {
             if (c == '"') {
                 in_string = true;
