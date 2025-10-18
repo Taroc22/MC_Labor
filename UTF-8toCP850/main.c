@@ -263,7 +263,7 @@ void handle_escape(char c, FILE *fout){
 		case 'a': case 'b': case 'e': case 'f':
 		case 'n': case 'r': case '"': case '?':
 		case 't': case 'v': case '\\': case '\'':
-			fputc('\\', fout); //Hier auch evtl. Fehler
+			fputc('\\', fout);
 			fputc(c, fout);
 			break; //DONE!!!
 		case '0': case '1': case '2': case '3':
