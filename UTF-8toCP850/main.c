@@ -4,8 +4,9 @@
 	@cmd: gcc main.c -o main.exe && main.exe input.c out.c
 	
 	@info: all valid C escape sequences (\a\b\e\f\n\r\t\v\\\'\"\?) stay untouched and are valid in CP850
-	@info: \nnn, \uhhhh and \Uhhhhhhhh stay untouched
-	@info: \xhh… not decided yet how to handle
+	
+	[@info: \nnn, \uhhhh and \Uhhhhhhhh stay untouched	] --in work
+	[@info: \xhh… stays untouched						] --in work		
 	@info: ignores all literals inside of comments
 */
 
@@ -111,15 +112,15 @@ static inline bool is_hex(int c) {
 }
 
 
-//Lies n hex-Zeichen; gibt false zurück, wenn nicht genug oder ungültig
+// reads n hex chars; returns false if not enough or invalid
 static bool read_fixed_hex(FILE* fin, FILE* fout, int count) {
     for (int i = 0; i < count; ++i) {
         int h = fgetc(fin);
         if (h == EOF || !is_hex(h)) {
-            // ungültig: bisherige Sequenz abbrechen
+            // invalid: cancel sequence
             fputc(FALLBACK, fout);
             if (h != EOF)
-                ungetc(h, fin); // das ungültige Zeichen wieder zurückgeben
+                ungetc(h, fin); // return invalid char
             return false;
         }
         fputc(h, fout);
@@ -128,7 +129,7 @@ static bool read_fixed_hex(FILE* fin, FILE* fout, int count) {
 }
 
 
-// Lies 1–3 Oktalziffern
+// reads 1-3 octal chars
 static bool read_octal(FILE* fin, FILE* fout) {
     int count = 0;
     while (count < 3) {
@@ -145,7 +146,7 @@ static bool read_octal(FILE* fin, FILE* fout) {
 }
 
 
-// --- Lies beliebig viele Hexziffern ---
+// reads any number of hex chars
 static bool read_hex(FILE* fin, FILE* fout) {
     int count = 0;
     while (1) {
