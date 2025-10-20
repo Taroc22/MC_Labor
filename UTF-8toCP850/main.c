@@ -6,8 +6,7 @@
 	@info: all valid C escape sequences (\a\b\e\f\n\r\t\v\\\'\"\?) stay untouched and are valid in CP850
 	@info: \nnn, \uhhhh and \Uhhhhhhhh stay untouched
 	@info: \xhh… not decided yet how to handle
-	
-	@todo: ignore comments
+	@info: ignores all literals inside of comments
 */
 
 #include <stdio.h>
@@ -23,7 +22,7 @@
 
 
 // returns replacement for valid utf-8 characters that are non-existent in CP850
-const char* fallback_string(uint32_t cp) {
+static const char* fallback_string(uint32_t cp) {
     switch (cp) {
         case 0x20AC: return "EUR";    // € -> "EUR"
         case 0x201C: return "\"";     // “ -> "
@@ -39,7 +38,7 @@ const char* fallback_string(uint32_t cp) {
 
 
 // writes replacement characters as valid sequences
-void write_escaped_for_c_literal(FILE *f, const char *s) {
+static void write_escaped_for_c_literal(FILE *f, const char *s) {
     if (!s) {
         fputc(FALLBACK, f);
         return;
@@ -62,7 +61,7 @@ void write_escaped_for_c_literal(FILE *f, const char *s) {
 }
 
 
-uint32_t utf8_to_unicode(const char *utf8, int bytescount) {
+static uint32_t utf8_to_unicode(const char *utf8, int bytescount) {
     uint32_t codepoint = 0;
 
     if (bytescount == 1) {
@@ -92,7 +91,7 @@ uint32_t utf8_to_unicode(const char *utf8, int bytescount) {
 }
 
 // returns 1 if mapping exists, 0 if not
-int unicode_to_cp850(uint32_t codepoint, uint8_t *out_cp) {
+static int unicode_to_cp850(uint32_t codepoint, uint8_t *out_cp) {
     if (codepoint < 128) { //ASCII
         *out_cp = (uint8_t)codepoint;
         return 1;
@@ -107,91 +106,64 @@ int unicode_to_cp850(uint32_t codepoint, uint8_t *out_cp) {
 }
 
 
-void handle_octal(FILE *fin, FILE *fout, char c){
-	int oct[3];
-	oct[0] = c;
-	int count = 1;
-
-	for (; count < 3; count++) {
-		int next = fgetc(fin);
-		if (next >= '0' && next <= '7') {
-			oct[count] = next;
-		} else { // revert to old cursor pos
-			for (int j = count - 1; j >= 0; j--) {
-				ungetc(oct[j], fin);
-			}
-			ungetc(next, fin);
-			break;
-		}
-	}
-
-	if (count == 3) {
-		for (int i = 0; i < 3; i++) {
-			fputc(oct[i], fout);
-		}
-	}else{
-		fputc(FALLBACK, fout);
-	}
+static inline bool is_hex(int c) {
+    return isdigit(c) || (tolower(c) >= 'a' && tolower(c) <= 'f');
 }
 
-void handle_u(FILE *fin, FILE *fout, char c){
-	int oct[4];
-	oct[0] = c;
-	int count = 1;
 
-	for (; count < 4; count++) {
-		int next = fgetc(fin);
-		if ((next >= '0' && next <= '9') || (next >= 'A' && next <= 'F') || (next >= 'a' && next <= 'f')) {
-			oct[count] = next;
-		} else { // revert to old cursor pos
-			for (int j = count - 1; j >= 0; j--) {
-				ungetc(oct[j], fin);
-			}
-			ungetc(next, fin);
-			break;
-		}
-	}
-
-	if (count == 4) {
-		fprintf(fout, "\\x%02X", 'u');
-		for (int i = 0; i < 4; i++) {
-			fprintf(fout, "\\x%02X", oct[i]);
-		}
-	}else{
-		fputc(FALLBACK, fout);
-	}
+//Lies n hex-Zeichen; gibt false zurück, wenn nicht genug oder ungültig
+static bool read_fixed_hex(FILE* fin, FILE* fout, int count) {
+    for (int i = 0; i < count; ++i) {
+        int h = fgetc(fin);
+        if (h == EOF || !is_hex(h)) {
+            // ungültig: bisherige Sequenz abbrechen
+            fputc(FALLBACK, fout);
+            if (h != EOF)
+                ungetc(h, fin); // das ungültige Zeichen wieder zurückgeben
+            return false;
+        }
+        fputc(h, fout);
+    }
+    return true;
 }
 
-void handle_U(FILE *fin, FILE *fout, char c){
-	int oct[8];
-	oct[0] = c;
-	int count = 1;
 
-	for (; count < 8; count++) {
-		int next = fgetc(fin);
-		if ((next >= '0' && next <= '9') || (next >= 'A' && next <= 'F') || (next >= 'a' && next <= 'f')) {
-			oct[count] = next;
-		} else { // revert to old cursor pos
-			for (int j = count - 1; j >= 0; j--) {
-				ungetc(oct[j], fin);
-			}
-			ungetc(next, fin);
-			break;
-		}
-	}
-
-	if (count == 8) {
-		fprintf(fout, "\\x%02X", 'U');
-		for (int i = 0; i < 8; i++) {
-			fprintf(fout, "\\x%02X", oct[i]);
-		}
-	}else{
-		fputc(FALLBACK, fout);
-	}
+// Lies 1–3 Oktalziffern
+static bool read_octal(FILE* fin, FILE* fout) {
+    int count = 0;
+    while (count < 3) {
+        int d = fgetc(fin);
+        if (d == EOF || d < '0' || d > '7') {
+            if (d != EOF)
+                ungetc(d, fin);
+            break;
+        }
+        fputc(d, fout);
+        count++;
+    }
+    return count > 0;
 }
+
+
+// --- Lies beliebig viele Hexziffern ---
+static bool read_hex(FILE* fin, FILE* fout) {
+    int count = 0;
+    while (1) {
+        int d = fgetc(fin);
+        if (d == EOF || !is_hex(d)) {
+            if (d != EOF)
+                ungetc(d, fin);
+            break;
+        }
+        fputc(d, fout);
+        count++;
+    }
+    return count > 0;
+}
+
 
 // extract UTF-8 character
-int handle_char(FILE *fin, FILE *fout, char c, bool *valid, bool in_char){
+static int handle_char(FILE *fin, FILE *fout, char c, bool *valid, bool in_char){
 
 	unsigned char first = (unsigned char)c;
 	int expected_bytes = 0;
@@ -258,44 +230,64 @@ int handle_char(FILE *fin, FILE *fout, char c, bool *valid, bool in_char){
 	return 0;
 }
 
-void handle_escape(char c, FILE *fout){
-	switch (c) {
-		case 'a': case 'b': case 'e': case 'f':
-		case 'n': case 'r': case '"': case '?':
-		case 't': case 'v': case '\\': case '\'':
-			fputc('\\', fout);
-			fputc(c, fout);
-			break; //DONE!!!
-		case '0': case '1': case '2': case '3':
-		case '4': case '5': case '6': case '7':
-			// \nnn
-			fputc('\\', fout);
-			//handle_octal(fin, fout, c);	//Problem bei Fehlerfall, falsche \nnn Format
-			break;
-		case 'u': 
-			// \uhhhh
-			fputc('\\', fout); //Hier auch evtl. Fehler
-			//c = fgetc(fin);
-			//handle_u(fin, fout, c); 
-			break;
-		case 'U': 
-			// \Uhhhhhhhh
-			fputc('\\', fout); //Hier auch evtl. Fehler
-			//c = fgetc(fin);
-			//handle_U(fin, fout, c);
-			break;
-		case 'x': 
-			// \xhh…
-			fputc('\\', fout); //Hier auch evtl. Fehler
-			//fprintf(fout, "\\x%02X", c); 
-			break;
-		default:  
-			fputc(FALLBACK, fout); //dont write escape sequence
-			break;
-	}
+static void handle_escape(int c, FILE* fout, FILE* fin) {
+    switch (c) {
+        case 'a': case 'b': case 'e': case 'f':
+        case 'n': case 'r': case '"': case '?':
+        case 't': case 'v': case '\\': case '\'':
+            fputc('\\', fout);
+            fputc(c, fout);
+            break;
+
+        case '0': case '1': case '2': case '3':
+        case '4': case '5': case '6': case '7': {
+            // \nnn (oktal)
+            fputc('\\', fout);	//erst machen wenn sicher valide
+            fputc(c, fout);
+            if (!read_octal(fin, fout)) {
+                fputc(FALLBACK, fout);
+            }
+            break;
+        }
+
+        case 'x': {
+            // \xhh...
+            fputc('\\', fout);	//erst machen wenn sicher valide
+            fputc('x', fout);
+            if (!read_hex(fin, fout)) {
+                fputc(FALLBACK, fout);
+            }
+            break;
+        }
+
+        case 'u': {
+            // \uhhhh
+            fputc('\\', fout);	//erst machen wenn sicher valide
+            fputc('u', fout);
+            if (!read_fixed_hex(fin, fout, 4)) {
+                fputc(FALLBACK, fout);
+            }
+            break;
+        }
+
+        case 'U': {
+            // \Uhhhhhhhh
+            fputc('\\', fout);	//erst machen wenn sicher valide
+            fputc('U', fout);
+            if (!read_fixed_hex(fin, fout, 8)) {
+                fputc(FALLBACK, fout);
+            }
+            break;
+        }
+
+        default:
+            fputc(FALLBACK, fout); // dont write escape sequence
+            break;
+    }
 }
 
-void convert(const char* input_path, const char* output_path) {
+
+static void convert(const char* input_path, const char* output_path) {
     FILE* fin = fopen(input_path, "r");
     if (!fin) {
         perror("Error while opening input file");
@@ -314,13 +306,36 @@ void convert(const char* input_path, const char* output_path) {
     bool in_char = false;
     bool escape = false;
 	bool valid = true;
+	bool in_line_comment = false;
+	bool in_block_comment = false;
+	int prev = 0;
 
     while ((c = fgetc(fin)) != EOF) {
+		if (in_line_comment) {
+            fputc(c, fout);
+            if (c == '\n') {
+                in_line_comment = false;
+            }
+            continue;
+        }
+		
+		if (in_block_comment) {
+			fputc(c, fout);
+			if (prev == '*' && c == '/') {
+				in_block_comment = false;
+				prev = 0;
+				continue;
+			}
+			prev = c;
+			continue;
+		}
+		
+		
         if (in_string || in_char) {
             char quote = in_string ? '"' : '\'';
 
             if (escape) {
-				handle_escape(c, fout);
+				handle_escape(c, fout, fin);
                 escape = false;
                 continue;
             }
@@ -344,20 +359,45 @@ void convert(const char* input_path, const char* output_path) {
 				break;
 			
         } else {
+            if (prev == '/' && c == '/') {
+				in_line_comment = true;
+				fputc('/', fout);
+				fputc('/', fout);
+				prev = 0;
+				continue;
+			} else if (prev == '/' && c == '*') {
+				in_block_comment = true;
+				fputc('/', fout);
+				fputc('*', fout);
+				prev = 0;
+				continue;
+			} else if (prev == '/') {	//handles standalone '/'; e.g. division
+				fputc('/', fout);
+			}
+			
+			
             if (c == '"') {
                 in_string = true;
                 fputc('"', fout);
+				prev = 0;
                 continue;
             } else if (c == '\'') {
                 in_char = true;
                 fputc('\'', fout);
+				prev = 0;
                 continue;
             }
         }
-
-        fputc(c, fout);
+		
+        if (c != '/') {
+            fputc(c, fout);
+            prev = c;
+        } else {
+            prev = '/';
+        }
     }
-
+	
+	if (prev == '/') fputc('/', fout);
     fclose(fin);
     fclose(fout);
 }
