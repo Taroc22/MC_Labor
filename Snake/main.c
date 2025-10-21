@@ -7,6 +7,7 @@
     TODO: 
         - If score > highscore => show at gameover
         - Sounds/ Optik
+        - LED vor Restart resetten
 */
 
 #include <msp430.h>
