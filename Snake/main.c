@@ -7,7 +7,6 @@
     TODO: 
         - If score > highscore => show at gameover
         - Sounds/ Optik
-        - LED vor Restart resetten
 */
 
 #include <msp430.h>
@@ -66,52 +65,7 @@
         8×8	                16×16      
 */
 
-
-volatile uint8_t __attribute__((section(".infoD"))) highscore;
-
-void initFlash(void) {
-    FCTL3 = FWKEY + LOCK; //lock Flash
-}
-
-uint8_t readFlash(void) {
-    return highscore;
-}
-
-void eraseFlash(void) {
-    uint8_t *ptr = (uint8_t *)&highscore;
-
-    __disable_interrupt(); 
-    FCTL3 = FWKEY;             //unlock
-    FCTL1 = FWKEY + ERASE;     //erase mode
-    *ptr = 0;                  //dummy write starts erasing
-
-    while (FCTL3 & BUSY);      //wait until done
-
-    FCTL1 = FWKEY;             //end
-    FCTL3 = FWKEY + LOCK;
-    __enable_interrupt();
-}
-
-void writeFlash(uint8_t newScore) {
-    uint8_t *ptr = (uint8_t *)&highscore;
-
-    __disable_interrupt(); 
-    eraseFlash();              //erase segment
-
-    FCTL3 = FWKEY;             //unlock
-    FCTL1 = FWKEY + WRT;       //write mode
-    *ptr = newScore;           //write byte
-
-    FCTL1 = FWKEY;             //end
-    FCTL3 = FWKEY + LOCK;
-    __enable_interrupt();
-}
-
-//debug
-void clearFlash(){
-    writeFlash(0x00);
-}
-
+void initFlash(void);
 unsigned int joyX, joyY;
 uint8_t score = 0;
 volatile uint8_t tick = 0;
@@ -123,7 +77,7 @@ typedef struct {
     uint8_t col;
 } GridPos;
 
-GridPos currPos; //max 0-15 für row&col
+GridPos currPos; //max 0-15 for row&col
 
 GridPos snake[MAX_SNAKE_LENGTH];
 uint16_t snakeLength = 1;
@@ -143,7 +97,6 @@ typedef enum {
 
 volatile Dir currDir = CENTER;
 
-
 enum RegType { REG_BIT, REG_VAL };
 
 struct RegOp {
@@ -161,14 +114,16 @@ struct RegOp ops[] = {
     { REG_BIT, &P4DIR, BIT7 },
     { REG_BIT, &P2DIR, BIT5 },                  //Buzzer
     { REG_BIT, &P2SEL, BIT5 },                  //Buzzer
-    { REG_VAL, &TA1CCTL0, CCIE },               //Timerconfig evtl auslagern in Hauptroutine
+    { REG_VAL, &TA1CCTL0, CCIE },
     { REG_VAL, &TA1CCR0, CLK },
     { REG_VAL, &TA1CTL, TASSEL_1|MC_1|ID_3|TACLR },
-    { REG_VAL, &ADC12CTL0, ADC12SHT0_8 },       //Sample-and-Hold 256 ADC-Takte
-    { REG_VAL, &ADC12CTL1, ADC12SHP },          //Sampling Timer verwenden
-    { REG_VAL, &ADC12CTL2, ADC12RES_2 },        //12-bit Auflösung
-    { REG_VAL, &ADC12CTL0, ADC12ON|ADC12ENC }   //ADC einschalten und aktivieren
+    { REG_VAL, &ADC12CTL0, ADC12SHT0_8 },       //Sample-and-Hold 256 ADC-Cycles
+    { REG_VAL, &ADC12CTL1, ADC12SHP },          //Use Sampling Timer
+    { REG_VAL, &ADC12CTL2, ADC12RES_2 },        //12-bit resolution
+    { REG_VAL, &ADC12CTL0, ADC12ON|ADC12ENC }   //ADC on and enable
 };
+
+volatile uint8_t __attribute__((section(".infoD"))) highscore;
 
 
 void delay(unsigned int ms){
@@ -205,14 +160,14 @@ void initMCU(){
 
 unsigned int readADC(unsigned int channel)
 {
-    ADC12CTL0 &= ~ADC12ENC;       // Konversion deaktivieren um Channel zu wechseln
-    ADC12MCTL0 = channel;         // ADC-Memory0 auf Channel einstellen (z. B. A5 = 5)
-    ADC12CTL0 |= ADC12ENC;        // ADC aktivieren
+    ADC12CTL0 &= ~ADC12ENC;       // disable conversion to change channel
+    ADC12MCTL0 = channel;         // ADC-Memory0 set channel  (e.g. A5 = 5)
+    ADC12CTL0 |= ADC12ENC;        // ADC enable
 
-    ADC12CTL0 |= ADC12SC;         // Konversion starten: Sample-and-Hold + A/D-Wandlung
-    while (ADC12CTL1 & ADC12BUSY);// Warten bis ADC fertig ist (BUSY=0 ist fertig)
+    ADC12CTL0 |= ADC12SC;         // start conversion: Sample-and-Hold + A/D-Conversion
+    while (ADC12CTL1 & ADC12BUSY);// Wait until ADC reading finished (BUSY=0 -> finished)
 
-    return ADC12MEM0;             // return Messwert (0–4095)
+    return ADC12MEM0;             // return adc value (0–4095)
 }
 
 
@@ -240,6 +195,53 @@ Dir scaleADC(uint16_t x, uint16_t y) {
 }
 
 
+void initFlash(void) {
+    FCTL3 = FWKEY + LOCK; //lock Flash
+}
+
+
+uint8_t readFlash(void) {
+    return highscore;
+}
+
+
+void eraseFlash(void) {
+    uint8_t *ptr = (uint8_t *)&highscore;
+
+    __disable_interrupt(); 
+    FCTL3 = FWKEY;             //unlock
+    FCTL1 = FWKEY + ERASE;     //erase mode
+    *ptr = 0;                  //dummy write starts erasing
+
+    while (FCTL3 & BUSY);      //wait until done
+
+    FCTL1 = FWKEY;             //end
+    FCTL3 = FWKEY + LOCK;
+    __enable_interrupt();
+}
+
+
+void writeFlash(uint8_t newScore) {
+    uint8_t *ptr = (uint8_t *)&highscore;
+
+    __disable_interrupt(); 
+    eraseFlash();              //erase segment
+
+    FCTL3 = FWKEY;             //unlock
+    FCTL1 = FWKEY + WRT;       //write mode
+    *ptr = newScore;           //write byte
+
+    FCTL1 = FWKEY;             //end
+    FCTL3 = FWKEY + LOCK;
+    __enable_interrupt();
+}
+
+//debug
+void clearFlash(){
+    writeFlash(0x00);
+}
+
+
 void setup(){
     initMCU();
     
@@ -260,6 +262,7 @@ void start(){
     uint8_t hs = readFlash();   
     char hsText[32]; 
     sb(P1OUT, BIT0);
+    cb(P4OUT, BIT7);
     sprintf(hsText, "Highscore: %u", hs);
     setText(centerText(PR), 20, PR, WHITE, BG);
     setText(centerText(ST), 55, ST, WHITE, BG);
@@ -271,7 +274,7 @@ void start(){
         setText(centerText(hsText), 85, hsText, WHITE, BG);
         tb(P1OUT, BIT0);
         tb(P4OUT, BIT7);
-        //Hier Buzzer anschalten
+        //Buzzer on
     start:
         delay(600);
         setText(centerText(PR), 20, PR, BG, BG);
@@ -279,7 +282,7 @@ void start(){
         setText(centerText(hsText), 85, hsText, BG, BG);
         tb(P1OUT, BIT0);
         tb(P4OUT, BIT7);
-        //Hier Buzzer ausschalten
+        //Buzzer off
         delay(600);
     }
     draw(0, 0, 128, 128, BG);
@@ -336,7 +339,7 @@ void spawnFood(void) {
         }
     }
 
-    if (freeCount == 0) return; //game won implementieren
+    if (freeCount == 0) return; //implement game won here
 
     unsigned int index = rand() % freeCount;
     GridPos foodPos = freeCells[index];
@@ -360,7 +363,7 @@ void checkFood() {
         snakeLength++;
 
     } else {
-        //always delete last element of snake
+        //always delete last element of snake[]
         GridPos last = snake[snakeLength - 1];
         PixelPos p = gridToPixel(last);
         draw(p.x, p.y, SNAKE_WIDTH, SNAKE_HEIGHT, BG);
@@ -398,10 +401,6 @@ void main(){
     drawSnake();
     spawnFood();
 
-    //debug
-    //char buffer[32];  
-    //const char* dirNames[] = { "CENTER", "UP", "DOWN", "LEFT", "RIGHT" }; 
-
     while(1){
         if (tick == 1){
 
@@ -411,12 +410,6 @@ void main(){
 
             //scale ADC
             currDir = scaleADC(joyX, joyY);
-
-            //debug
-            //sprintf(buffer, "X:%4u Y:%4u", joyX, joyY);
-            //drawTextLine(2, 0, buffer, GREEN, BLACK);
-            //sprintf(buffer, "Dir=%s", dirNames[currDir]);
-            //drawTextLine(6, 0, buffer, GREEN, BLACK);
             
             if(checkCollision(&lastDir) == 1) {
                 checkFood();
@@ -444,7 +437,8 @@ void main(){
 }
 
 
-// Timer1_A0 ISR => wird bei CCR0 erreicht ausgelöst
+// Timer1_A0 ISR => fires at CCR0
+// runs the main loop
 __attribute__((interrupt(TIMER1_A0_VECTOR)))
 void TIMER1_A0_ISR(void) {
     tick = 1;
