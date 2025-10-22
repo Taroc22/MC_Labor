@@ -5,8 +5,7 @@
 
 /*
     TODO: 
-        - If score > highscore => show at gameover
-        - Sounds/ Optik
+        - Sounds
 */
 
 #include <msp430.h>
@@ -60,6 +59,8 @@
 
     Timer A0 = delay
     Timer A1 = tick for main loop
+    Timer A2 = PWM Signal for Buzzer
+    Timer B0 = trigger for Buzzer off
 
     Feldgröße (Pixel)	Felder pro Achse
         8×8	                16×16      
@@ -126,7 +127,7 @@ struct RegOp ops[] = {
 volatile uint8_t __attribute__((section(".infoD"))) highscore;
 
 
-void delay(unsigned int ms){
+void delay(unsigned int ms) {
     TA0CCR0 = 4096/1000 * ms;
     TA0CTL = TASSEL_1 + MC_1 + ID_3 + TACLR;
     while (!(TA0CCTL0 & CCIFG));
@@ -142,7 +143,7 @@ int centerText(const char *text) {
 }
 
 
-void initMCU(){
+void initMCU() {
     WDTCTL = WDTPW + WDTHOLD;
     for (int i = 0; i < sizeof(ops)/sizeof(ops[0]); i++) {
         if (ops[i].type == REG_BIT) {
@@ -158,8 +159,7 @@ void initMCU(){
 }
 
 
-unsigned int readADC(unsigned int channel)
-{
+unsigned int readADC(unsigned int channel) {
     ADC12CTL0 &= ~ADC12ENC;       // disable conversion to change channel
     ADC12MCTL0 = channel;         // ADC-Memory0 set channel  (e.g. A5 = 5)
     ADC12CTL0 |= ADC12ENC;        // ADC enable
@@ -171,11 +171,18 @@ unsigned int readADC(unsigned int channel)
 }
 
 
-PixelPos gridToPixel(GridPos g) {
-    PixelPos p;
-    p.x = g.col * SNAKE_WIDTH;
-    p.y = g.row * SNAKE_HEIGHT;
-    return p;
+//is BLOCKING; be careful with duration_ms 
+void play_tone(unsigned int freq, unsigned int duration_ms) {
+    unsigned int period = 32768 / freq;
+    if(period == 0) period = 1;
+    TA2CCR0 = period - 1;
+    TA2CCR2 = period / 2;
+    TA2CCTL2 = OUTMOD_3;
+    TA2CTL = TASSEL_1 + MC_1 + ID_0;
+    delay(duration_ms);
+    TA2CTL = MC_0;
+    TA2CCTL2 = OUTMOD_0;
+    P2OUT &= ~BIT5;
 }
 
 
@@ -237,12 +244,20 @@ void writeFlash(uint8_t newScore) {
 }
 
 //debug
-void clearFlash(){
+void clearFlash() {
     writeFlash(0x00);
 }
 
 
-void setup(){
+PixelPos gridToPixel(GridPos g) {
+    PixelPos p;
+    p.x = g.col * SNAKE_WIDTH;
+    p.y = g.row * SNAKE_HEIGHT;
+    return p;
+}
+
+
+void setup() {
     initMCU();
     
     draw(0, 0, 128, 128, BG);
@@ -256,45 +271,62 @@ void setup(){
     delay(500);  
 }
 
+int melody[4][3] = {
+    {10000, 9000, 8000},
+    {10000, 12000, 11000},
+    {9000, 10000, 8000},
+    {6000, 7000, 9000}
+};
 
-void start(){ 
+int dur[4][3] = {
+    {100, 100, 100},
+    {100, 100, 100},
+    {100, 100, 100},
+    {100, 100, 100}
+};
+
+int numBlocks = 4;
+int notesPerBlock = 3;
+
+void start() { 
     //clearFlash(); //debug
-    uint8_t hs = readFlash();   
-    char hsText[32]; 
+
+    int blockIdx = 0;
+
     sb(P1OUT, BIT0);
     cb(P4OUT, BIT7);
+
+    uint8_t hs = readFlash();
+    char hsText[32]; 
     sprintf(hsText, "Highscore: %u", hs);
-    setText(centerText(PR), 20, PR, WHITE, BG);
-    setText(centerText(ST), 55, ST, WHITE, BG);
-    setText(centerText(hsText), 85, hsText, WHITE, BG);
-    goto start;
-    while (!(P1IFG & BIT1) && !(P2IFG & BIT1)){
+
+    while (!(P1IFG & BIT1) && !(P2IFG & BIT1)) {
         setText(centerText(PR), 20, PR, WHITE, BG);
         setText(centerText(ST), 55, ST, WHITE, BG);
         setText(centerText(hsText), 85, hsText, WHITE, BG);
         tb(P1OUT, BIT0);
         tb(P4OUT, BIT7);
-        //Buzzer on
-    start:
-        delay(600);
+        for (int i = 0; i < notesPerBlock; i++) {
+            play_tone(melody[blockIdx][i], dur[blockIdx][i]);
+            delay(50);
+        }
         setText(centerText(PR), 20, PR, BG, BG);
         setText(centerText(ST), 55, ST, BG, BG);
         setText(centerText(hsText), 85, hsText, BG, BG);
         tb(P1OUT, BIT0);
         tb(P4OUT, BIT7);
-        //Buzzer off
+        blockIdx = (blockIdx + 1) % numBlocks;
         delay(600);
     }
-    draw(0, 0, 128, 128, BG);
+    draw(0, 0, 128, 128, BLACK);
     if (P1IFG & BIT1) P1IFG &= ~BIT1;
     if (P2IFG & BIT1) P2IFG &= ~BIT1;
 }
 
 
 // returns 0 if collison, 1 if none
-unsigned int checkCollision(Dir *lastDir)
-{
-    // If curDir == CENTER keep lastDir
+unsigned int checkCollision(Dir *lastDir) {
+    // If currDir == CENTER keep lastDir
     Dir dirToCheck = (currDir == CENTER) ? *lastDir : currDir;
 
     int newRow = currPos.row;
@@ -321,9 +353,9 @@ unsigned int checkCollision(Dir *lastDir)
 }
 
 
-void drawSnake(){
+void drawSnake() {
     PixelPos p = gridToPixel(snake[0]);
-    draw(p.x, p.y, SNAKE_WIDTH, SNAKE_HEIGHT, RED);
+    draw(p.x, p.y, SNAKE_WIDTH, SNAKE_HEIGHT, GREEN);
 }
 
 
@@ -346,13 +378,14 @@ void spawnFood(void) {
 
     field[foodPos.row][foodPos.col] = 2;
     PixelPos p = gridToPixel(foodPos);
-    draw(p.x, p.y, SNAKE_WIDTH, SNAKE_HEIGHT, GREEN);
+    draw(p.x, p.y, SNAKE_WIDTH, SNAKE_HEIGHT, RED);
 }
 
 
 void checkFood() {
     if(field[currPos.row][currPos.col] == 2) {
         score++;
+        play_tone(10000, 100);   // 1 kHz für 200 ms
         spawnFood();
 
         //push snake[] one index up and add currPos at index 0
@@ -366,7 +399,7 @@ void checkFood() {
         //always delete last element of snake[]
         GridPos last = snake[snakeLength - 1];
         PixelPos p = gridToPixel(last);
-        draw(p.x, p.y, SNAKE_WIDTH, SNAKE_HEIGHT, BG);
+        draw(p.x, p.y, SNAKE_WIDTH, SNAKE_HEIGHT, BLACK);
         field[last.row][last.col] = 0;
         
         //push snake[] one index up, delete last element and add currPos at index 0
@@ -379,7 +412,7 @@ void checkFood() {
 }
 
 
-void main(){
+void main() {
     setup();
 
     restart:
@@ -415,12 +448,22 @@ void main(){
                 checkFood();
                 drawSnake();
             } else {
-                draw(0, 0, 128, 128, BG);
-                setText(centerText(GO), 58, GO, WHITE, BG);
-                char sText[32]; 
-                sprintf(sText, "Score: %u", score);
-                setText(centerText(sText), 85, sText, WHITE, BG);
-                break;
+                if (score > readFlash()){
+                    draw(0, 0, 128, 128, BG);
+                    setText(centerText(GO), 43, GO, WHITE, BG);
+                    char sText[32]; 
+                    sprintf(sText, "New Highscore: %u", score);
+                    setText(centerText(sText), 70, sText, WHITE, BG);
+                    break;
+                }else {
+                    draw(0, 0, 128, 128, BG);
+                    setText(centerText(GO), 43, GO, WHITE, BG);
+                    char sText[32]; 
+                    sprintf(sText, "Score: %u", score);
+                    setText(centerText(sText), 70, sText, WHITE, BG);
+                    break;
+                }
+                
             }
 
             tick = 0;
@@ -433,6 +476,9 @@ void main(){
 
     delay(5000);
     draw(0, 0, 128, 128, BG);
+    score = 0;
+    snakeLength = 1;
+    currDir = CENTER;
     goto restart;
 }
 
