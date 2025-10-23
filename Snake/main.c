@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include "melody.h"
 
 #define sb(reg, bit) ((reg) |= (bit))
 #define cb(reg, bit) ((reg) &= ~(bit))
@@ -47,6 +48,8 @@
 #define DEADZONE        500
 
 #define CLK             4096/1000 * 500 //clock for main loop; adjust for game speed
+
+#define MELODY_LEN (sizeof(melody)/sizeof(melody[0]))
 
 /*
     Anzahl Zeilen (Höhe): 0-10
@@ -212,20 +215,22 @@ void play_tone(unsigned int freq, unsigned int duration_ms) {
 }
 
 
-/*
-//is BLOCKING; be careful with duration_ms 
-void play_tone(unsigned int freq, unsigned int duration_ms) {
-    unsigned int period = 32768 / freq;
-    if(period == 0) period = 1;
-    TA2CCR0 = period - 1;
-    TA2CCR2 = period / 2;
-    TA2CCTL2 = OUTMOD_3;
-    TA2CTL = TASSEL_1 + MC_1 + ID_0;
-    delay(duration_ms);
-    TA2CTL = MC_0;
-    TA2CCTL2 = OUTMOD_0;
-    P2OUT &= ~BIT5;
-}*/
+volatile uint8_t melody_playing = 0;
+volatile uint8_t melody_index = 0;
+
+
+void start_melody(void) {
+    melody_playing = 1;
+    melody_index = 0;
+    play_tone(melody[0].freq, melody[0].duration);
+}
+
+
+void stop_melody(void) {
+    melody_playing = 0;
+    buzzer_off();
+    TB0CTL = MC_0;
+}
 
 
 void initFlash(void) {
@@ -417,10 +422,10 @@ void checkFood() {
 
 
 void main() {
+    start_melody();
     setup();
     restart:
     start();
-
     srand(TA1R); //init seed randomly
 
     for (int i = 0; i < ROWS; i++){
@@ -498,7 +503,18 @@ void TIMER1_A0_ISR(void) {
 // triggers buzzer_off()
 __attribute__((interrupt(TIMER0_B0_VECTOR)))
 void TIMER0_B0_ISR(void) {
-    buzzer_off();
-    TB0CTL = MC_0;
-    TB0CCTL0 &= ~CCIFG;
+    buzzer_off();                 
+    TB0CTL = MC_0;                
+    TB0CCTL0 &= ~CCIFG;           
+
+    if (melody_playing) {
+        melody_index++;
+        if (melody_index < MELODY_LEN) {
+            play_tone(melody[melody_index].freq, melody[melody_index].duration);
+        } else {
+            melody_index = 0;
+            play_tone(melody[melody_index].freq, melody[melody_index].duration);
+        }
+    }
 }
+
