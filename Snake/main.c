@@ -46,18 +46,22 @@
 #define ADC_CENTER      (ADC_MAX / 2)
 #define DEADZONE        500
 
-#define CLK             4096/1000 * 600
+#define CLK             4096/1000 * 500 //clock for main loop; adjust for game speed
 
 /*
     Anzahl Zeilen (Höhe): 0-10
     Displaygröße: 128x128 (y wird aber gestreckt)
 
+    Feldgröße (Pixel)	Felder pro Achse
+        8×8	                16×16      
+    
     Timer A0 = delay
     Timer A1 = tick for main loop
     Timer A2 = PWM Signal for Buzzer
+    Timer B0 = non blocking trigger for Buzzer off
 
-    Feldgröße (Pixel)	Felder pro Achse
-        8×8	                16×16      
+    To eliminate space between snake body parts remove addition/subtraction 
+    from draw() inside drawSnake() and spawnFood()
 */
 
 void initFlash(void);
@@ -92,7 +96,7 @@ typedef enum {
 
 volatile Dir currDir = CENTER;
 
-enum RegType { REG_BIT, REG_VAL };
+enum RegType {REG_BIT, REG_VAL};
 
 struct RegOp {
     enum RegType type;
@@ -109,6 +113,7 @@ struct RegOp ops[] = {
     { REG_BIT, &P4DIR, BIT7 },
     { REG_BIT, &P2DIR, BIT5 },                  //Buzzer
     { REG_BIT, &P2SEL, BIT5 },                  //Buzzer
+    { REG_VAL, &TB0CCTL0, CCIE },                
     { REG_VAL, &TA1CCTL0, CCIE },
     { REG_VAL, &TA1CCR0, CLK },
     { REG_VAL, &TA1CTL, TASSEL_1|MC_1|ID_3|TACLR },
@@ -181,6 +186,33 @@ Dir scaleADC(uint16_t x, uint16_t y) {
 }
 
 
+void buzzer_on(unsigned int frequency) {
+    unsigned int period = 32768 / frequency;
+    if (period == 0) period = 1;
+
+    TA2CCR0 = period - 1;       // period duration
+    TA2CCR2 = period / 2;       // 50% Duty Cycle
+    TA2CCTL2 = OUTMOD_3;
+    TA2CTL = TASSEL_1 + MC_1 + ID_0;
+}
+
+
+void buzzer_off(void) {
+    TA2CTL = MC_0;
+    P2OUT &= ~BIT5;
+}
+
+
+void play_tone(unsigned int freq, unsigned int duration_ms) {
+    buzzer_on(freq);
+    TB0CTL = MC_0;
+    TB0CCTL0 &= ~CCIFG;
+    TB0CCR0 = 4096/1000 * duration_ms;
+    TB0CTL = TASSEL_1 + MC_1 + ID_3 + TACLR;
+}
+
+
+/*
 //is BLOCKING; be careful with duration_ms 
 void play_tone(unsigned int freq, unsigned int duration_ms) {
     unsigned int period = 32768 / freq;
@@ -193,7 +225,7 @@ void play_tone(unsigned int freq, unsigned int duration_ms) {
     TA2CTL = MC_0;
     TA2CCTL2 = OUTMOD_0;
     P2OUT &= ~BIT5;
-}
+}*/
 
 
 void initFlash(void) {
@@ -320,15 +352,14 @@ unsigned int checkCollision(Dir *lastDir) {
         return 0; //body collision
         
     *lastDir = dirToCheck;
-    currPos.row = newRow;
-    currPos.col = newCol;
+    currPos = (GridPos){newRow, newCol};
     return 1;
 }
 
 
 void drawSnake() {
     PixelPos p = gridToPixel(snake[0]);
-    draw(p.x, p.y, SNAKE_WIDTH, SNAKE_HEIGHT, GREEN);
+    draw(p.x+1, p.y+1, SNAKE_WIDTH-2, SNAKE_HEIGHT-2, GREEN);
 }
 
 
@@ -351,14 +382,14 @@ void spawnFood(void) {
 
     field[foodPos.row][foodPos.col] = 2;
     PixelPos p = gridToPixel(foodPos);
-    draw(p.x, p.y, SNAKE_WIDTH, SNAKE_HEIGHT, RED);
+    draw(p.x+1, p.y+1, SNAKE_WIDTH-2, SNAKE_HEIGHT-2, RED);
 }
 
 
 void checkFood() {
     if(field[currPos.row][currPos.col] == 2) {
         score++;
-        play_tone(10000, 100);   // 10 kHz for 100ms; blocking
+        //play_tone(10000, 100);   // 10 kHz for 100ms; blocking
         spawnFood();
 
         //push snake[] one index up and add currPos at index 0
@@ -387,11 +418,10 @@ void checkFood() {
 
 void main() {
     setup();
-
     restart:
     start();
 
-    srand(TA1R);
+    srand(TA1R); //init seed randomly
 
     for (int i = 0; i < ROWS; i++){
         for (int j = 0; j < COLS; j++){
@@ -461,4 +491,14 @@ void TIMER1_A0_ISR(void) {
     tick = 1;
     sb(TA1CTL, TACLR);
     TA1CCTL0 &= ~CCIFG; 
+}
+
+
+// Timer0_B0 ISR => fires at CCR0
+// triggers buzzer_off()
+__attribute__((interrupt(TIMER0_B0_VECTOR)))
+void TIMER0_B0_ISR(void) {
+    buzzer_off();
+    TB0CTL = MC_0;
+    TB0CCTL0 &= ~CCIFG;
 }
