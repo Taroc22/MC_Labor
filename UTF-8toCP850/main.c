@@ -5,7 +5,7 @@
 	
 	@info: all valid C escape sequences (\a\b\e\f\n\r\t\v\\\'\"\?) stay untouched and are valid in CP850
 	@info: \nnn, \uhhhh and \Uhhhhhhhh stay untouched
-	@info: \xhh… stays untouched; digit count is limited, contrary to the c standard, to 1 byte to prevent overflow
+	@info: \xhh… stays untouched; digit count is limited, contrary to the c standard, to 1 byte to prevent char overflow
 	@info: ignores all literals inside of comments
 */
 
@@ -19,7 +19,6 @@
 
 // replaces invalid characters; must not be A-F
 #define FALLBACK '?'	
-
 
 // returns replacement for valid utf-8 characters that are non-existent in CP850
 static const char* fallback_string(uint32_t cp) {
