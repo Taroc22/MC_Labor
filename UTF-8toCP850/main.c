@@ -4,9 +4,8 @@
 	@cmd: gcc main.c -o main.exe && main.exe input.c out.c
 	
 	@info: all valid C escape sequences (\a\b\e\f\n\r\t\v\\\'\"\?) stay untouched and are valid in CP850
-	
-	[@info: \nnn, \uhhhh and \Uhhhhhhhh stay untouched	] --in work
-	[@info: \xhh… stays untouched						] --in work		
+	@info: \nnn, \uhhhh and \Uhhhhhhhh stay untouched
+	@info: \xhh… stays untouched; digit count is limited, contrary to the c standard, to 1 byte to prevent overflow
 	@info: ignores all literals inside of comments
 */
 
@@ -112,54 +111,72 @@ static inline bool is_hex(int c) {
 }
 
 
-// reads n hex chars; returns false if not enough or invalid
-static bool read_fixed_hex(FILE* fin, FILE* fout, int count) {
+// reads 'count' hex chars
+static void read_fixed_hex(FILE* fin, FILE* fout, int c, int count) {
+	char hex[count];
     for (int i = 0; i < count; ++i) {
         int h = fgetc(fin);
         if (h == EOF || !is_hex(h)) {
-            // invalid: cancel sequence
-            fputc(FALLBACK, fout);
             if (h != EOF)
-                ungetc(h, fin); // return invalid char
-            return false;
+                ungetc(h, fin);
+			fputc(FALLBACK, fout);
+            return;
         }
-        fputc(h, fout);
+		hex[i] = h;
     }
-    return true;
+	fputc('\\', fout);
+	fputc(c, fout);
+	for (int i = 0; i < count; i++) {
+		fputc(hex[i], fout);
+    }
 }
 
 
 // reads 1-3 octal chars
-static bool read_octal(FILE* fin, FILE* fout) {
-    int count = 0;
+static void read_octal(FILE* fin, FILE* fout, int c) {
+    int count = 1;
+	char oct[3];
+	oct[0] = c;
     while (count < 3) {
         int d = fgetc(fin);
         if (d == EOF || d < '0' || d > '7') {
             if (d != EOF)
                 ungetc(d, fin);
-            break;
+			fputc(FALLBACK, fout);
+            return;
         }
-        fputc(d, fout);
+		oct[count] = d;
         count++;
     }
-    return count > 0;
+	fputc('\\', fout);
+	for (int i = 0; i < 3; i++) {
+		fputc(oct[i], fout);
+    }
 }
 
 
-// reads any number of hex chars
-static bool read_hex(FILE* fin, FILE* fout) {
+// reads any number of consecutive hex chars
+static void read_hex(FILE* fin, FILE* fout) {
+    char hex[8];
     int count = 0;
-    while (1) {
+    for (int i = 0; i < 8; ++i) {
         int d = fgetc(fin);
         if (d == EOF || !is_hex(d)) {
             if (d != EOF)
                 ungetc(d, fin);
             break;
         }
-        fputc(d, fout);
-        count++;
+        hex[count++] = d;
     }
-    return count > 0;
+    if (count == 0) {
+        fputc(FALLBACK, fout);
+        return;
+    }
+    fputc('\\', fout);
+    fputc('x', fout);
+    for (int i = 0; i < count; ++i) {
+        fputc(hex[i], fout);
+    }
 }
 
 
@@ -241,45 +258,25 @@ static void handle_escape(int c, FILE* fout, FILE* fin) {
             break;
 
         case '0': case '1': case '2': case '3':
-        case '4': case '5': case '6': case '7': {
-            // \nnn (oktal)
-            fputc('\\', fout);	//erst machen wenn sicher valide
-            fputc(c, fout);
-            if (!read_octal(fin, fout)) {
-                fputc(FALLBACK, fout);
-            }
+        case '4': case '5': case '6': case '7':
+            // \nnn (octal)
+			read_octal(fin, fout, c);
             break;
-        }
 
-        case 'x': {
+        case 'x':
             // \xhh...
-            fputc('\\', fout);	//erst machen wenn sicher valide
-            fputc('x', fout);
-            if (!read_hex(fin, fout)) {
-                fputc(FALLBACK, fout);
-            }
+			read_hex(fin, fout);
             break;
-        }
 
-        case 'u': {
+        case 'u':
             // \uhhhh
-            fputc('\\', fout);	//erst machen wenn sicher valide
-            fputc('u', fout);
-            if (!read_fixed_hex(fin, fout, 4)) {
-                fputc(FALLBACK, fout);
-            }
+            read_fixed_hex(fin, fout, c, 4);
             break;
-        }
 
-        case 'U': {
+        case 'U':
             // \Uhhhhhhhh
-            fputc('\\', fout);	//erst machen wenn sicher valide
-            fputc('U', fout);
-            if (!read_fixed_hex(fin, fout, 8)) {
-                fputc(FALLBACK, fout);
-            }
+			read_fixed_hex(fin, fout, c, 8);
             break;
-        }
 
         default:
             fputc(FALLBACK, fout); // dont write escape sequence

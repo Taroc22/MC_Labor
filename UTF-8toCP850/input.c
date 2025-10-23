@@ -8,8 +8,12 @@
 #define CTL_STEP 30
 
 void main(void){
-    //"AB\'D"
+    "AB\'D"
+	"\u129C76B9"
+	"\xG"
 	"\xÜE2"
+	"Ü"
+	"TestString\t\u12Hs92"
     //LCD Beleuchtung ist angeschlossen an P2.4 entspricht TA2.1 (Timer A2 CCR1)
     //Buzzer ist angeschlossen an P2.5 entspricht TA2.2 (Timer A2 CCR2)
 
