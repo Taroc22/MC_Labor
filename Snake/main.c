@@ -3,11 +3,6 @@
     @author: Amir Tannouri | 2025
 */
 
-/*
-    TODO: 
-        - Sounds
-*/
-
 #include <msp430.h>
 #include "ST7735.h"
 #include <string.h>
@@ -60,7 +55,6 @@
     Timer A0 = delay
     Timer A1 = tick for main loop
     Timer A2 = PWM Signal for Buzzer
-    Timer B0 = trigger for Buzzer off
 
     Feldgröße (Pixel)	Felder pro Achse
         8×8	                16×16      
@@ -171,21 +165,6 @@ unsigned int readADC(unsigned int channel) {
 }
 
 
-//is BLOCKING; be careful with duration_ms 
-void play_tone(unsigned int freq, unsigned int duration_ms) {
-    unsigned int period = 32768 / freq;
-    if(period == 0) period = 1;
-    TA2CCR0 = period - 1;
-    TA2CCR2 = period / 2;
-    TA2CCTL2 = OUTMOD_3;
-    TA2CTL = TASSEL_1 + MC_1 + ID_0;
-    delay(duration_ms);
-    TA2CTL = MC_0;
-    TA2CCTL2 = OUTMOD_0;
-    P2OUT &= ~BIT5;
-}
-
-
 Dir scaleADC(uint16_t x, uint16_t y) {
     int16_t dx = (int16_t)x - ADC_CENTER;
     int16_t dy = (int16_t)y - ADC_CENTER;
@@ -199,6 +178,21 @@ Dir scaleADC(uint16_t x, uint16_t y) {
     } else {
         return (dy < 0) ? DOWN : UP;
     }
+}
+
+
+//is BLOCKING; be careful with duration_ms 
+void play_tone(unsigned int freq, unsigned int duration_ms) {
+    unsigned int period = 32768 / freq;
+    if(period == 0) period = 1;
+    TA2CCR0 = period - 1;
+    TA2CCR2 = period / 2;
+    TA2CCTL2 = OUTMOD_3;
+    TA2CTL = TASSEL_1 + MC_1 + ID_0;
+    delay(duration_ms);
+    TA2CTL = MC_0;
+    TA2CCTL2 = OUTMOD_0;
+    P2OUT &= ~BIT5;
 }
 
 
@@ -243,17 +237,10 @@ void writeFlash(uint8_t newScore) {
     __enable_interrupt();
 }
 
+
 //debug
 void clearFlash() {
     writeFlash(0x00);
-}
-
-
-PixelPos gridToPixel(GridPos g) {
-    PixelPos p;
-    p.x = g.col * SNAKE_WIDTH;
-    p.y = g.row * SNAKE_HEIGHT;
-    return p;
 }
 
 
@@ -271,27 +258,9 @@ void setup() {
     delay(500);  
 }
 
-int melody[4][3] = {
-    {10000, 9000, 8000},
-    {10000, 12000, 11000},
-    {9000, 10000, 8000},
-    {6000, 7000, 9000}
-};
-
-int dur[4][3] = {
-    {100, 100, 100},
-    {100, 100, 100},
-    {100, 100, 100},
-    {100, 100, 100}
-};
-
-int numBlocks = 4;
-int notesPerBlock = 3;
 
 void start() { 
     //clearFlash(); //debug
-
-    int blockIdx = 0;
 
     sb(P1OUT, BIT0);
     cb(P4OUT, BIT7);
@@ -306,21 +275,25 @@ void start() {
         setText(centerText(hsText), 85, hsText, WHITE, BG);
         tb(P1OUT, BIT0);
         tb(P4OUT, BIT7);
-        for (int i = 0; i < notesPerBlock; i++) {
-            play_tone(melody[blockIdx][i], dur[blockIdx][i]);
-            delay(50);
-        }
+        delay(600);
         setText(centerText(PR), 20, PR, BG, BG);
         setText(centerText(ST), 55, ST, BG, BG);
         setText(centerText(hsText), 85, hsText, BG, BG);
         tb(P1OUT, BIT0);
         tb(P4OUT, BIT7);
-        blockIdx = (blockIdx + 1) % numBlocks;
         delay(600);
     }
     draw(0, 0, 128, 128, BLACK);
     if (P1IFG & BIT1) P1IFG &= ~BIT1;
     if (P2IFG & BIT1) P2IFG &= ~BIT1;
+}
+
+
+PixelPos gridToPixel(GridPos g) {
+    PixelPos p;
+    p.x = g.col * SNAKE_WIDTH;
+    p.y = g.row * SNAKE_HEIGHT;
+    return p;
 }
 
 
@@ -385,7 +358,7 @@ void spawnFood(void) {
 void checkFood() {
     if(field[currPos.row][currPos.col] == 2) {
         score++;
-        play_tone(10000, 100);   // 1 kHz für 200 ms
+        play_tone(10000, 100);   // 10 kHz for 100ms; blocking
         spawnFood();
 
         //push snake[] one index up and add currPos at index 0
@@ -437,11 +410,9 @@ void main() {
     while(1){
         if (tick == 1){
 
-            //read ADC
             joyX = readADC(5);   // P6.5
             joyY = readADC(3);   // P6.3
 
-            //scale ADC
             currDir = scaleADC(joyX, joyY);
             
             if(checkCollision(&lastDir) == 1) {
