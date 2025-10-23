@@ -165,7 +165,8 @@ static void read_hex(FILE* fin, FILE* fout) {
                 ungetc(d, fin);
             break;
         }
-        hex[count++] = d;
+        hex[count] = d;
+		count++;
     }
     if (count == 0) {
         fputc(FALLBACK, fout);
