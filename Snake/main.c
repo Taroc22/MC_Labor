@@ -22,7 +22,7 @@
 #define GREEN   0x00FF00
 #define BLUE    0xFF0000
 #define YELLOW  0x00FFFF
-#define BG      0xD40D48
+#define BG      BLACK//0xD40D48
 
 #define AT "Amir Tannouri"
 #define BY "by"
@@ -190,7 +190,7 @@ Dir scaleADC(uint16_t x, uint16_t y) {
 
 
 void buzzer_on(unsigned int frequency) {
-    unsigned int period = 32768 / frequency;
+    int period = 32768 / frequency;
     if (period == 0) period = 1;
 
     TA2CCR0 = period - 1;       // period duration
@@ -208,9 +208,8 @@ void buzzer_off(void) {
 
 void play_tone(unsigned int freq, unsigned int duration_ms) {
     buzzer_on(freq);
-    TB0CTL = MC_0;
     TB0CCTL0 &= ~CCIFG;
-    TB0CCR0 = 4096/1000 * duration_ms;
+    TB0CCR0 = (uint16_t)((4096UL * duration_ms + 500) / 1000);
     TB0CTL = TASSEL_1 + MC_1 + ID_3 + TACLR;
 }
 
@@ -283,7 +282,7 @@ void clearFlash() {
 
 void setup() {
     initMCU();
-    
+    start_melody();
     draw(0, 0, 128, 128, BG);
     delay(2000);
     setText(centerText(NM), 30, NM, WHITE, BG);
@@ -422,7 +421,6 @@ void checkFood() {
 
 
 void main() {
-    start_melody();
     setup();
     restart:
     start();
